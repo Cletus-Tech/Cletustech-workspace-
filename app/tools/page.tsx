@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
+type Account = {
+  id: string; provider_id: string; label: string; external_account_label: string | null;
+  connection_method: string; status: string; secret_reference: string | null; notes: string | null;
+};
 type Provider = {
   id: string;
   name: string;
@@ -30,6 +34,15 @@ export default function ToolsPage() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [accountProvider, setAccountProvider] = useState<Provider | null>(null);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [accountLabel, setAccountLabel] = useState("");
+  const [externalLabel, setExternalLabel] = useState("");
+  const [accountMethod, setAccountMethod] = useState("manual");
+  const [accountNotes, setAccountNotes] = useState("");
+  const [secretReference, setSecretReference] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
@@ -48,7 +61,12 @@ export default function ToolsPage() {
     setUser(currentUser);
     const { data, error: queryError } = await supabase.from("ai_providers").select("*").order("created_at", { ascending: false });
     if (queryError) setError(queryError.message);
-    else setProviders(data ?? []);
+    else {
+      setProviders(data ?? []);
+      const { data: accountData, error: accountError } = await supabase.from("provider_accounts").select("*").order("created_at", { ascending: false });
+      if (accountError) setError(accountError.message);
+      else setAccounts((accountData ?? []) as Account[]);
+    }
     setLoading(false);
   }, [router, supabase]);
 
@@ -97,6 +115,38 @@ export default function ToolsPage() {
     else { setNotice("Provider removed."); await load(); }
   }
 
+  function openAccountForm(provider: Provider, account?: Account) {
+    setAccountProvider(provider); setEditingAccount(account ?? null);
+    setAccountLabel(account?.label ?? ""); setExternalLabel(account?.external_account_label ?? "");
+    setAccountMethod(account?.connection_method ?? "manual"); setAccountNotes(account?.notes ?? "");
+    setSecretReference(account?.secret_reference ?? ""); setError(""); setShowAccountForm(true);
+  }
+
+  async function saveAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user || !accountProvider) return;
+    setBusy(true); setError(""); setNotice("");
+    const payload = {
+      label: accountLabel.trim(), external_account_label: externalLabel.trim() || null,
+      connection_method: accountMethod, notes: accountNotes.trim() || null,
+      secret_reference: secretReference.trim() || null, updated_at: new Date().toISOString()
+    };
+    const result = editingAccount
+      ? await supabase.from("provider_accounts").update(payload).eq("id", editingAccount.id).eq("owner_id", user.id)
+      : await supabase.from("provider_accounts").insert({ ...payload, owner_id: user.id, provider_id: accountProvider.id, status: "not_connected" });
+    setBusy(false);
+    if (result.error) { setError(result.error.message); return; }
+    setShowAccountForm(false); setNotice(editingAccount ? "Provider account details updated." : "Account profile added. It is not connected yet.");
+    await load();
+  }
+
+  async function removeAccount(account: Account) {
+    if (!user || !window.confirm("Remove account profile " + account.label + "?")) return;
+    const { error: deleteError } = await supabase.from("provider_accounts").delete().eq("id", account.id).eq("owner_id", user.id);
+    if (deleteError) setError(deleteError.message);
+    else { setNotice("Account profile removed."); await load(); }
+  }
+
   async function signOut() { await supabase.auth.signOut(); router.replace("/login"); }
 
   if (loading) return <main className="boot-screen"><div className="boot-mark">CT</div><div className="boot-title">CLETUS TECH WORKSPACE</div><div className="boot-line" /><p>Loading provider registry…</p></main>;
@@ -114,7 +164,7 @@ export default function ToolsPage() {
         <div className="provider-summary"><div><span>REGISTERED PROVIDERS</span><strong>{providers.length}</strong></div><div><span>ENABLED</span><strong>{providers.filter(p => p.is_enabled).length}</strong></div><div><span>VERIFIED CONNECTIONS</span><strong>{providers.filter(p => p.connection_status === "connected").length}</strong></div></div>
         <div className="provider-section-heading"><div><h2>Your provider registry</h2><p>Manage preferred AI services without locking your workflow to one vendor.</p></div></div>
         {providers.length === 0 ? <div className="panel provider-empty"><div className="empty-icon">✳</div><h3>Your provider registry is empty</h3><p>Add services you already use. You can register video, image, writing, voice, music and editing tools here.</p><button className="secondary-button" onClick={openCreate}>＋ Register your first AI tool</button></div> :
-          <div className="provider-grid">{providers.map(provider => <article className="provider-card" key={provider.id}><div className="provider-card-top"><span className={"provider-category-icon " + provider.category}>{(categoryNames[provider.category] || "AI").slice(0,1)}</span><span className={provider.is_enabled ? "provider-enabled" : "provider-disabled"}>{provider.is_enabled ? "Enabled" : "Disabled"}</span></div><h3>{provider.name}</h3><p className="provider-category">{categoryNames[provider.category] || provider.category}</p>{provider.website_url && <a className="provider-url" href={provider.website_url} target="_blank" rel="noreferrer">{provider.website_url.replace(/^https?:\/\//,"").replace(/\/$/,"")} ↗</a>}<div className="provider-connection"><span className="connection-indicator" />{provider.connection_status.replaceAll("_"," ")} · {provider.connection_type.replaceAll("_"," ")}</div>{provider.notes && <p className="provider-notes">{provider.notes}</p>}<div className="provider-actions"><button onClick={() => openEdit(provider)}>Edit</button><button onClick={() => void toggle(provider)}>{provider.is_enabled ? "Disable" : "Enable"}</button><button className="danger-action" onClick={() => void remove(provider)}>Remove</button></div></article>)}</div>}
+          <div className="provider-grid">{providers.map(provider => <article className="provider-card" key={provider.id}><div className="provider-card-top"><span className={"provider-category-icon " + provider.category}>{(categoryNames[provider.category] || "AI").slice(0,1)}</span><span className={provider.is_enabled ? "provider-enabled" : "provider-disabled"}>{provider.is_enabled ? "Enabled" : "Disabled"}</span></div><h3>{provider.name}</h3><p className="provider-category">{categoryNames[provider.category] || provider.category}</p>{provider.website_url && <a className="provider-url" href={provider.website_url} target="_blank" rel="noreferrer">{provider.website_url.replace(/^https?:\/\//,"").replace(/\/$/,"")} ↗</a>}<div className="provider-connection"><span className="connection-indicator" />{provider.connection_status.replaceAll("_"," ")} · {provider.connection_type.replaceAll("_"," ")}</div>{provider.notes && <p className="provider-notes">{provider.notes}</p>}<div className="provider-account-list"><div className="provider-account-heading"><strong>Account profiles</strong><button onClick={() => openAccountForm(provider)}>＋ Add account</button></div>{accounts.filter(account => account.provider_id === provider.id).length === 0 ? <p className="provider-no-accounts">No account profiles saved yet.</p> : accounts.filter(account => account.provider_id === provider.id).map(account => <div className="provider-account-row" key={account.id}><span className="account-avatar">{account.label.slice(0,1).toUpperCase()}</span><span className="account-copy"><strong>{account.label}</strong><small>{account.external_account_label || "Account label not specified"} · {account.connection_method.replaceAll("_"," ")}</small></span><span className="account-status">{account.status.replaceAll("_"," ")}</span><button className="text-action" onClick={() => openAccountForm(provider, account)}>Edit</button><button className="text-action danger-action" onClick={() => void removeAccount(account)}>Remove</button></div>)}</div><div className="provider-actions"><button onClick={() => openEdit(provider)}>Edit provider</button><button onClick={() => void toggle(provider)}>{provider.is_enabled ? "Disable" : "Enable"}</button><button className="danger-action" onClick={() => void remove(provider)}>Remove</button></div></article>)}</div>}
       </div>
     </section>
     {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowForm(false); }}><form className="project-modal" onSubmit={save}><div className="modal-top"><div><p className="eyebrow">PROVIDER REGISTRY</p><h2>{editing ? "Edit provider" : "Add AI provider"}</h2></div><button type="button" className="close-button" onClick={() => setShowForm(false)} aria-label="Close">×</button></div>
@@ -125,6 +175,15 @@ export default function ToolsPage() {
       <label htmlFor="provider-notes">Notes (optional)</label><textarea id="provider-notes" className="provider-notes-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Free-tier notes, output limits, supported features…" rows={3} />
       <div className="modal-note">This saves the provider profile only. It will remain “not connected” until a real connection is configured and tested. Do not enter passwords or secret API keys here.</div>
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Add provider"}</button></div>
+    </form></div>}
+    {showAccountForm && accountProvider && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowAccountForm(false); }}><form className="project-modal" onSubmit={saveAccount}><div className="modal-top"><div><p className="eyebrow">ACCOUNT PROFILES · ${accountProvider.name}</p><h2>{editingAccount ? "Edit account profile" : "Add account profile"}</h2></div><button type="button" className="close-button" onClick={() => setShowAccountForm(false)} aria-label="Close">×</button></div>
+      <label htmlFor="account-label">Workspace label</label><input id="account-label" value={accountLabel} onChange={e => setAccountLabel(e.target.value)} placeholder="e.g. Main production account" maxLength={100} required />
+      <label htmlFor="external-account-label">Provider-side account label (optional)</label><input id="external-account-label" value={externalLabel} onChange={e => setExternalLabel(e.target.value)} placeholder="e.g. studio@example.com or Team workspace" maxLength={160} />
+      <label htmlFor="account-method">Connection method</label><select id="account-method" value={accountMethod} onChange={e => setAccountMethod(e.target.value)}><option value="manual">Manual handoff</option><option value="oauth">Official OAuth</option><option value="api_key_reference">API key reference</option><option value="browser_session">Supported browser session</option></select>
+      <label htmlFor="secret-reference">Secret manager reference (optional)</label><input id="secret-reference" value={secretReference} onChange={e => setSecretReference(e.target.value)} placeholder="Reference name only — never paste a key" maxLength={180} />
+      <label htmlFor="account-notes">Notes</label><textarea id="account-notes" className="provider-notes-input" value={accountNotes} onChange={e => setAccountNotes(e.target.value)} placeholder="Purpose, plan notes or account-specific capabilities…" rows={3} />
+      <div className="modal-note">This stores an account label and connection metadata only. It does not sign in or verify the provider. Account status remains “not connected” until a real supported connection test is implemented. Never store passwords, session cookies or raw API keys here.</div>
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowAccountForm(false)}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Saving…" : editingAccount ? "Save account" : "Add account profile"}</button></div>
     </form></div>}
   </main>;
 }
