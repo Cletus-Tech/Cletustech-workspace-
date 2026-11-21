@@ -208,13 +208,17 @@ export default function ProjectWorkspacePage() {
     if (saveError) { setSaving(false); setError(saveError.message); return; }
     const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
     if (workflowJob) {
-      const completedStage = refinedScript ? "refinement" : "script";
-      const { error: completedError } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: approved, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", completedStage);
+      const { error: scriptCompleteError } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: scriptDraft, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "script");
+      let refinementCompleteError: { message: string } | null = null;
+      if (refinedScript) {
+        const { error } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: refinedScript, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "refinement");
+        refinementCompleteError = error;
+      }
       const { error: nextError } = await supabase.from("production_steps").update({ status: "ready", input_payload: { instruction: "Create the storyboard and lock scene-by-scene continuity from the approved screenplay." }, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "storyboard");
       const { error: jobError } = await supabase.from("production_jobs").update({ status: "queued", output_payload: { approved_script: approved, next_stage: "storyboard" }, updated_at: new Date().toISOString() }).eq("id", workflowJob.id).eq("owner_id", user.id);
-      if (completedError || nextError || jobError) {
+      if (scriptCompleteError || refinementCompleteError || nextError || jobError) {
         setSaving(false);
-        setError("The screenplay was saved, but the storyboard hand-off needs attention: " + (completedError?.message || nextError?.message || jobError?.message));
+        setError("The screenplay was saved, but the storyboard hand-off needs attention: " + (scriptCompleteError?.message || refinementCompleteError?.message || nextError?.message || jobError?.message));
         await load();
         return;
       }
