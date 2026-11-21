@@ -34,7 +34,7 @@ Copy `.env.example` to `.env.local` and configure:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://hibbcjkgppblkgvftawl.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_qhdZfdgdQ2H-xoEy67a4ng_cbqUv0Mx
 ```
 
 Get the publishable key from Supabase Project Settings → API Keys → Publishable key. Do not use the service_role/secret key in browser code, and never commit `.env.local`.
