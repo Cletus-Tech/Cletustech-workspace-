@@ -4,6 +4,8 @@ This function powers the first AI-assisted stages of a production:
 
 1. `analyze` — reads the project brief and production bible, then saves a structured project analysis.
 2. `concepts` — uses the saved analysis to create three alternative creative concepts.
+3. `script` — writes a complete screenplay from the concept the user selected.
+4. `refine` — edits the screenplay for story logic, dialogue, pacing, emotional impact and continuity.
 
 ## Security
 
