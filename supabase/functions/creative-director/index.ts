@@ -142,7 +142,6 @@ Deno.serve(async (req: Request) => {
       await supabase.from("production_jobs").update({
         status: "waiting_for_approval",
         output_payload: { latest_stage: stage, result },
-        completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", jobId).eq("owner_id", authData.user.id);
     }
