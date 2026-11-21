@@ -124,7 +124,7 @@ export default function ProjectWorkspacePage() {
     return () => window.cancelAnimationFrame(frame);
   }, [load, projectId]);
 
-  const activeJob = jobs[0] ?? null;
+  const activeJob = jobs.find(job => job.job_type === "idea_to_video") ?? jobs[0] ?? null;
   const activeSteps = useMemo(() => activeJob ? steps.filter(step => step.job_id === activeJob.id) : [], [activeJob, steps]);
 
   async function runCreativeStage(action: "analyze" | "concepts") {
