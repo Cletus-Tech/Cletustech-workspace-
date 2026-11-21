@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link, { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
