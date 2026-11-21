@@ -18,7 +18,7 @@ A professional, free-first AI production web application. The long-term goal is 
 - GitHub source control and GitHub Actions validation
 - Optional external AI providers added in later milestones
 
-Vercel hosting is intentionally deferred. Work locally first, then choose hosting when the app is ready.
+The GitHub Pages preview is used to inspect the real exported workspace UI. It is a static frontend connected directly to Supabase; server-only Next.js features are not available on this preview. Vercel hosting remains deferred.
 
 ## Local setup
 
@@ -47,7 +47,7 @@ In Supabase Authentication → URL Configuration, add this local redirect URL:
 
 - `http://localhost:3000/auth/callback`
 
-Ensure the Supabase email provider is enabled. When hosted later, add the deployed app's callback URL too.
+Ensure the Supabase email provider is enabled. For the GitHub Pages preview, also allow `https://cletus-tech.github.io/Cletustech-workspace-/auth/callback/`. The preview uses the browser Supabase client for authentication and data access.
 
 ## Engineering principles
 
