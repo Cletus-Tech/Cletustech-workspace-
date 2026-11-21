@@ -15,7 +15,10 @@ function reply(body: Record<string, unknown>, status = 200) {
 }
 
 function parseJson(content: string) {
-  const cleaned = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const start = content.indexOf("{");
+  const end = content.lastIndexOf("}");
+  if (start < 0 || end < start) throw new Error("The AI response was not valid JSON.");
+  return JSON.parse(content.slice(start, end + 1));
   return JSON.parse(cleaned);
 }
 
