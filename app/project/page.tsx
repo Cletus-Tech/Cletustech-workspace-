@@ -135,7 +135,15 @@ export default function ProjectWorkspacePage() {
     const { data, error: invokeError } = await supabase.functions.invoke("creative-director", { body: { project_id: project.id, action } });
     if (action === "analyze") setAnalysisBusy(false); else setConceptBusy(false);
     if (invokeError) {
-      setError(invokeError.message + (invokeError.message.includes("AI_PROVIDER_NOT_CONFIGURED") ? "" : " If the AI provider is not configured, add its secrets in Supabase Edge Function settings."));
+      let message = invokeError.message;
+      const context = (invokeError as unknown as { context?: unknown }).context;
+      if (context instanceof Response) {
+        try {
+          const detail = await context.clone().json();
+          if (typeof detail.error === "string") message = detail.error;
+        } catch { /* Keep the SDK error when no JSON response is available. */ }
+      }
+      setError(message);
       return;
     }
     if (data?.error) { setError(String(data.error)); return; }
