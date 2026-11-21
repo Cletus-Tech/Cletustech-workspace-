@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
@@ -52,7 +51,10 @@ export default function ToolsPage() {
     setLoading(false);
   }, [router, supabase]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => { void load(); });
+    return () => window.cancelAnimationFrame(frame);
+  }, [load]);
 
   function openCreate() {
     setEditing(null); setName(""); setCategory("video"); setWebsite(""); setConnectionType("manual"); setNotes(""); setError(""); setShowForm(true);
