@@ -57,13 +57,16 @@ export default function ProjectWorkspacePage() {
   }, [projectId, router, supabase]);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("id");
-    if (!id) {
-      setError("This project link is missing its project ID.");
-      setLoading(false);
-      return;
-    }
-    setProjectId(id);
+    const frame = window.requestAnimationFrame(() => {
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (!id) {
+        setError("This project link is missing its project ID.");
+        setLoading(false);
+        return;
+      }
+      setProjectId(id);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
