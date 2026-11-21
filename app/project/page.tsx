@@ -76,6 +76,7 @@ export default function ProjectWorkspacePage() {
   const [concepts, setConcepts] = useState<CreativeConcept[]>([]);
   const [scriptDraft, setScriptDraft] = useState<Record<string, unknown> | null>(null);
   const [refinedScript, setRefinedScript] = useState<Record<string, unknown> | null>(null);
+  const [scriptApproved, setScriptApproved] = useState(false);
   const [selectedConceptId, setSelectedConceptId] = useState("");
 
   const load = useCallback(async () => {
@@ -98,6 +99,7 @@ export default function ProjectWorkspacePage() {
       setConcepts(Array.isArray(savedMetadata.concept_options) ? savedMetadata.concept_options as CreativeConcept[] : []);
       setScriptDraft(savedMetadata.script_draft && typeof savedMetadata.script_draft === "object" ? savedMetadata.script_draft as Record<string, unknown> : null);
       setRefinedScript(savedMetadata.refined_script && typeof savedMetadata.refined_script === "object" ? savedMetadata.refined_script as Record<string, unknown> : null);
+      setScriptApproved(Boolean(savedMetadata.approved_script));
       const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
       setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
@@ -193,6 +195,32 @@ export default function ProjectWorkspacePage() {
       }
     }
     setNotice("Concept selected and saved. The script-writing stage is now ready for development.");
+    await load();
+  }
+
+  async function approveScreenplay() {
+    if (!project || !user) return;
+    const approved = refinedScript ?? scriptDraft;
+    if (!approved) return;
+    setSaving(true); setError(""); setNotice("");
+    const metadata = { ...(project.metadata ?? {}), approved_script: approved, creative_stage: "screenplay_approved" };
+    const { error: saveError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
+    if (saveError) { setSaving(false); setError(saveError.message); return; }
+    const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
+    if (workflowJob) {
+      const completedStage = refinedScript ? "refinement" : "script";
+      const { error: completedError } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: approved, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", completedStage);
+      const { error: nextError } = await supabase.from("production_steps").update({ status: "ready", input_payload: { instruction: "Create the storyboard and lock scene-by-scene continuity from the approved screenplay." }, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "storyboard");
+      const { error: jobError } = await supabase.from("production_jobs").update({ status: "queued", output_payload: { approved_script: approved, next_stage: "storyboard" }, updated_at: new Date().toISOString() }).eq("id", workflowJob.id).eq("owner_id", user.id);
+      if (completedError || nextError || jobError) {
+        setSaving(false);
+        setError("The screenplay was saved, but the storyboard hand-off needs attention: " + (completedError?.message || nextError?.message || jobError?.message));
+        await load();
+        return;
+      }
+    }
+    setSaving(false); setScriptApproved(true);
+    setNotice("Screenplay approved. The storyboard stage is now ready.");
     await load();
   }
 
@@ -386,6 +414,7 @@ export default function ProjectWorkspacePage() {
             <pre>{String((refinedScript ?? scriptDraft)?.screenplay ?? "")}</pre>
             {Array.isArray((refinedScript ?? scriptDraft)?.revision_notes) && <div className="script-revision-notes"><strong>EDITOR'S CHANGES</strong>{((refinedScript ?? scriptDraft)?.revision_notes as string[]).map((note,index)=><p key={index}>• {note}</p>)}</div>}
             {Array.isArray((refinedScript ?? scriptDraft)?.scene_breakdown) && <div className="script-scene-count">{((refinedScript ?? scriptDraft)?.scene_breakdown as unknown[]).length} structured scenes included in the screenplay output.</div>}
+            <div className="script-approval-row"><span>{scriptApproved ? "Approved screenplay saved to this project." : "Review the screenplay before approving the next stage."}</span><button className="primary-button" onClick={() => void approveScreenplay()} disabled={saving || scriptApproved}>{saving ? "Saving approval…" : scriptApproved ? "Screenplay approved ✓" : "Approve screenplay & continue →"}</button></div>
           </div>}
           <p className="director-footnote">AI processing runs securely on the server. Your provider key is never placed in the browser or saved in project metadata.</p>
         </section>
