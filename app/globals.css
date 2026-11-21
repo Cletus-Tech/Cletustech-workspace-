@@ -130,3 +130,17 @@
 .back-link:hover{color:#fff}
 @media(max-width:1000px){.asset-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.project-detail-grid{grid-template-columns:1fr}}
 @media(max-width:680px){.project-studio-hero{display:block;padding:20px;margin-top:9px}.project-studio-hero h1{font-size:27px}.project-hero-meta{justify-content:flex-start;margin-top:14px}.creative-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.creative-project-grid{grid-template-columns:1fr}.run-step{grid-template-columns:27px minmax(0,1fr)}.run-step select{grid-column:2;width:100%}.run-card-head{align-items:flex-start}.scene-actions{flex-direction:column;gap:2px}.asset-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.asset-preview{height:75px}.creative-scene-row{gap:9px}.scene-number{flex-shrink:0}}
+
+.provider-account-list{border-top:1px solid #ffffff16;margin-top:13px;padding-top:11px}
+.provider-account-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.provider-account-heading strong{font:650 9px Manrope;color:#c9c7e8;letter-spacing:.4px}
+.provider-account-heading button{border:0;background:transparent;color:#b8adff;font-size:9px;font-weight:700;cursor:pointer}
+.provider-no-accounts{font-size:9px;color:#8189a9;margin:0 0 3px}
+.provider-account-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #ffffff0c;min-width:0}
+.account-avatar{width:25px;height:25px;flex-shrink:0;display:grid;place-items:center;border-radius:8px;background:linear-gradient(145deg,#6454a2,#365a91);color:white;font:700 9px Manrope}
+.account-copy{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.account-copy strong{font-size:9px;color:#e7e4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-copy small{font-size:8px;color:#969cba;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:capitalize}
+.account-status{font-size:8px;color:#a8b1c8;background:#ffffff0a;padding:4px 6px;border-radius:10px;white-space:nowrap;text-transform:capitalize}
+.provider-account-row .text-action{font-size:8px;padding:4px}
+@media(max-width:480px){.provider-account-row{flex-wrap:wrap}.account-copy{min-width:calc(100% - 42px)}.account-status{margin-left:33px}}
