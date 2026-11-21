@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
@@ -128,7 +129,7 @@ export default function Home() {
           <div className="pipeline-grid">{stages.map(([number, name, detail]) => <div className="stage-card" key={number}><div className="stage-top"><span className="stage-number">{number}</span>{number !== "05" && <span className="stage-connector" />}</div><h3>{name}</h3><p>{detail}</p><span className="stage-state">Production module planned</span></div>)}</div>
           <div className="lower-grid">
             <section className="panel projects-panel" id="projects"><div className="panel-heading"><div><h2>Recent projects</h2><p>Projects saved to your private workspace.</p></div><button className="text-button" onClick={() => setShowNewProject(true)}>New project <span>＋</span></button></div>
-              {projects.length === 0 ? <div className="empty-projects"><div className="empty-icon">▤</div><strong>Your production space starts here</strong><p>Create a project to keep its brief, scripts, scenes, AI outputs and final exports together.</p><button className="secondary-button" onClick={() => setShowNewProject(true)}>＋ Create your first project</button></div> : <div className="project-list">{projects.map(project => <article className="project-row" key={project.id}><div className="project-thumb">▶</div><div className="project-info"><strong>{project.name}</strong><small>{typeLabels[project.production_type] || project.production_type.replaceAll("_", " ")} · Updated {new Date(project.updated_at).toLocaleDateString()}</small></div><span className={"project-status " + project.status}>{project.status.replaceAll("_", " ")}</span></article>)}</div>}
+              {projects.length === 0 ? <div className="empty-projects"><div className="empty-icon">▤</div><strong>Your production space starts here</strong><p>Create a project to keep its brief, scripts, scenes, AI outputs and final exports together.</p><button className="secondary-button" onClick={() => setShowNewProject(true)}>＋ Create your first project</button></div> : <div className="project-list">{projects.map(project => <Link className="project-row" href={`/projects/${project.id}`} key={project.id}><div className="project-thumb">▶</div><div className="project-info"><strong>{project.name}</strong><small>{typeLabels[project.production_type] || project.production_type.replaceAll("_", " ")} · Updated {new Date(project.updated_at).toLocaleDateString()}</small></div><span className={"project-status " + project.status}>{project.status.replaceAll("_", " ")}</span><span className="project-open">↗</span></Link>)}</div>}
             </section>
             <section className="panel tools-panel" id="tools"><div className="panel-heading"><div><h2>AI tool connections</h2><p>Provider registry status from your database.</p></div><span className="connection-state">Registry ready</span></div>
               <div className="tool-row"><span className="tool-logo script">S</span><div><strong>Script & language</strong><small>Writing and creative direction</small></div><span className="connection-state">Awaiting setup</span></div>
