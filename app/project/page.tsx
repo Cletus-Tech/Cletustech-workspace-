@@ -74,6 +74,8 @@ export default function ProjectWorkspacePage() {
   const [conceptBusy, setConceptBusy] = useState(false);
   const [projectAnalysis, setProjectAnalysis] = useState<Record<string, unknown> | null>(null);
   const [concepts, setConcepts] = useState<CreativeConcept[]>([]);
+  const [scriptDraft, setScriptDraft] = useState<Record<string, unknown> | null>(null);
+  const [refinedScript, setRefinedScript] = useState<Record<string, unknown> | null>(null);
   const [selectedConceptId, setSelectedConceptId] = useState("");
 
   const load = useCallback(async () => {
@@ -94,6 +96,8 @@ export default function ProjectWorkspacePage() {
       const savedMetadata = p.metadata ?? {};
       setProjectAnalysis(savedMetadata.project_analysis && typeof savedMetadata.project_analysis === "object" ? savedMetadata.project_analysis as Record<string, unknown> : null);
       setConcepts(Array.isArray(savedMetadata.concept_options) ? savedMetadata.concept_options as CreativeConcept[] : []);
+      setScriptDraft(savedMetadata.script_draft && typeof savedMetadata.script_draft === "object" ? savedMetadata.script_draft as Record<string, unknown> : null);
+      setRefinedScript(savedMetadata.refined_script && typeof savedMetadata.refined_script === "object" ? savedMetadata.refined_script as Record<string, unknown> : null);
       const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
       setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
@@ -137,13 +141,15 @@ export default function ProjectWorkspacePage() {
   const activeJob = jobs.find(job => job.job_type === "idea_to_video") ?? jobs[0] ?? null;
   const activeSteps = useMemo(() => activeJob ? steps.filter(step => step.job_id === activeJob.id) : [], [activeJob, steps]);
 
-  async function runCreativeStage(action: "analyze" | "concepts") {
+  async function runCreativeStage(action: "analyze" | "concepts" | "script" | "refine") {
     if (!project) return;
     if (action === "concepts" && !projectAnalysis) { setError("Complete project analysis before developing concepts."); return; }
-    if (action === "analyze") setAnalysisBusy(true); else setConceptBusy(true);
+    if (action === "script" && !selectedConceptId) { setError("Choose a concept before writing the screenplay."); return; }
+    if (action === "refine" && !scriptDraft) { setError("Create a script draft before refining it."); return; }
+    if (action === "analyze") setAnalysisBusy(true); else if (action === "concepts") setConceptBusy(true); else setSaving(true);
     setError(""); setNotice("");
     const { data, error: invokeError } = await supabase.functions.invoke("creative-director", { body: { project_id: project.id, action } });
-    if (action === "analyze") setAnalysisBusy(false); else setConceptBusy(false);
+    if (action === "analyze") setAnalysisBusy(false); else if (action === "concepts") setConceptBusy(false); else setSaving(false);
     if (invokeError) {
       let message = invokeError.message;
       const context = (invokeError as unknown as { context?: unknown }).context;
@@ -157,7 +163,7 @@ export default function ProjectWorkspacePage() {
       return;
     }
     if (data?.error) { setError(String(data.error)); return; }
-    setNotice(action === "analyze" ? "Project analysis is complete. Review the direction, then develop alternative concepts." : "Three creative concepts are ready for your review.");
+    setNotice(({ analyze: "Project analysis is complete. Review the direction, then develop alternative concepts.", concepts: "Three creative concepts are ready for your review.", script: "Your first screenplay draft is ready for review.", refine: "The script editor has completed its refinement. Review the revised screenplay." } as Record<string, string>)[action]);
     await load();
   }
 
@@ -357,6 +363,8 @@ export default function ProjectWorkspacePage() {
           <div className="director-actions">
             <div className="director-action-card"><span className="director-number">01</span><div><strong>Project Analyzer</strong><p>Purpose, audience, message, emotional journey and visual direction.</p><button className="primary-button" onClick={() => void runCreativeStage("analyze")} disabled={analysisBusy || conceptBusy}>{analysisBusy ? "Analyzing your idea…" : projectAnalysis ? "Re-analyze project" : "Analyze this idea →"}</button></div><span className="director-state">{projectAnalysis ? "Analysis ready" : "Awaiting analysis"}</span></div>
             <div className="director-action-card"><span className="director-number">02</span><div><strong>Concept Developer</strong><p>Three meaningfully different story concepts, prepared for your approval.</p><button className="secondary-button" onClick={() => void runCreativeStage("concepts")} disabled={!projectAnalysis || analysisBusy || conceptBusy}>{conceptBusy ? "Developing concepts…" : concepts.length ? "Generate new concepts" : "Develop concepts →"}</button></div><span className="director-state">{concepts.length ? concepts.length + " concepts ready" : "After analysis"}</span></div>
+            <div className="director-action-card"><span className="director-number">03</span><div><strong>Screenwriter</strong><p>Write a complete screenplay from the concept you approved, including scenes and dialogue.</p><button className="secondary-button" onClick={() => void runCreativeStage("script")} disabled={!selectedConceptId || saving || analysisBusy || conceptBusy}>{saving ? "Writing screenplay…" : scriptDraft ? "Write a new draft" : "Write screenplay →"}</button></div><span className="director-state">{scriptDraft ? "Draft ready" : selectedConceptId ? "Ready to write" : "Choose concept first"}</span></div>
+            <div className="director-action-card"><span className="director-number">04</span><div><strong>Script Editor</strong><p>Strengthen dialogue, emotional logic, pacing, scene transitions and the ending.</p><button className="secondary-button" onClick={() => void runCreativeStage("refine")} disabled={!scriptDraft || saving || analysisBusy || conceptBusy}>{saving ? "Refining script…" : refinedScript ? "Refine again" : "Refine screenplay →"}</button></div><span className="director-state">{refinedScript ? "Refined version ready" : scriptDraft ? "Draft available" : "After first draft"}</span></div>
           </div>
           {projectAnalysis && <div className="analysis-result">
             <div className="analysis-result-top"><span>PROJECT ANALYSIS</span><span>AI CREATIVE BRIEF</span></div>
@@ -372,6 +380,13 @@ export default function ProjectWorkspacePage() {
             {Array.isArray(projectAnalysis.emotional_journey) && <div className="analysis-tags"><small>EMOTIONAL JOURNEY</small>{(projectAnalysis.emotional_journey as string[]).map((item,index)=><span key={index}>{item}</span>)}</div>}
           </div>}
           {concepts.length > 0 && <div className="concept-results"><div className="concept-results-heading"><div><span className="section-kicker">YOUR CREATIVE OPTIONS</span><h3>Choose the direction worth developing.</h3></div><span>{concepts.length} ALTERNATIVES</span></div><div className="concept-card-grid">{concepts.map((concept,index)=><article className={"concept-card " + (selectedConceptId===concept.id ? "concept-selected" : "")} key={concept.id}><div className="concept-card-top"><span>CONCEPT 0{index+1}</span>{selectedConceptId===concept.id && <b>SELECTED</b>}</div><h4>{concept.title}</h4><p className="concept-logline">{concept.logline}</p><p>{concept.synopsis}</p><div className="concept-detail"><small>CREATIVE APPROACH</small><p>{concept.creative_approach}</p></div><div className="concept-detail"><small>VISUAL IDENTITY</small><p>{concept.visual_identity}</p></div><div className="concept-card-meta"><span>{concept.production_complexity} complexity</span><span>{concept.estimated_duration}</span></div><button className={selectedConceptId===concept.id ? "secondary-button" : "primary-button"} onClick={() => void chooseConcept(concept)} disabled={saving}>{selectedConceptId===concept.id ? "Selected ✓" : "Choose this concept →"}</button></article>)}</div></div>}
+          {(scriptDraft || refinedScript) && <div className="script-result">
+            <div className="script-result-heading"><div><span className="section-kicker">SCREENPLAY WORKSPACE</span><h3>{String((refinedScript ?? scriptDraft)?.title ?? project.name)}</h3></div><span>{refinedScript ? "REFINED VERSION" : "FIRST DRAFT"}</span></div>
+            <p className="script-logline">{String((refinedScript ?? scriptDraft)?.logline ?? "")}</p>
+            <pre>{String((refinedScript ?? scriptDraft)?.screenplay ?? "")}</pre>
+            {Array.isArray((refinedScript ?? scriptDraft)?.revision_notes) && <div className="script-revision-notes"><strong>EDITOR'S CHANGES</strong>{((refinedScript ?? scriptDraft)?.revision_notes as string[]).map((note,index)=><p key={index}>• {note}</p>)}</div>}
+            {Array.isArray((refinedScript ?? scriptDraft)?.scene_breakdown) && <div className="script-scene-count">{((refinedScript ?? scriptDraft)?.scene_breakdown as unknown[]).length} structured scenes included in the screenplay output.</div>}
+          </div>}
           <p className="director-footnote">AI processing runs securely on the server. Your provider key is never placed in the browser or saved in project metadata.</p>
         </section>
         <div className="project-overview-grid creative-overview-grid"><div className="project-overview-card"><span>SCENES PLANNED</span><strong>{scenes.length}</strong></div><div className="project-overview-card"><span>FRAME FORMAT</span><strong>{aspectRatio}</strong></div><div className="project-overview-card"><span>TARGET LENGTH</span><strong>{duration ? duration + "s" : "Not set"}</strong></div><div className="project-overview-card"><span>PROJECT ASSETS</span><strong>{assets.length}</strong></div></div>
