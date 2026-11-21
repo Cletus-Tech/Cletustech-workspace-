@@ -209,3 +209,15 @@
 .director-footnote{margin:18px 0 0;color:#8190ad;font-size:11px;line-height:1.6}
 @media(max-width:850px){.concept-card-grid{grid-template-columns:1fr}.concept-card{min-height:0}.director-actions{grid-template-columns:1fr}}
 @media(max-width:560px){.creative-director-panel{padding:18px;border-radius:20px}.creative-director-heading{align-items:flex-start}.director-orbit{flex-basis:64px;width:64px;height:64px}.director-orbit span{width:34px;height:34px;border-radius:11px;font-size:12px}.director-orbit i{inset:5px}.director-orbit b{inset:-4px}.director-action-card{padding:15px 13px;grid-template-columns:34px 1fr}.director-number{width:32px;height:32px}.director-state{position:static;grid-column:2;margin-top:-7px}.analysis-result,.concept-results{padding:15px}.analysis-insight-grid{grid-template-columns:1fr;gap:13px}}
+
+
+.script-result{margin-top:22px;padding:clamp(16px,2.5vw,26px);border:1px solid rgba(98,207,190,.24);border-radius:18px;background:linear-gradient(145deg,rgba(13,37,46,.58),rgba(9,19,34,.78))}
+.script-result-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.script-result-heading h3{margin:7px 0 0;color:#fff;font-size:22px;letter-spacing:-.03em}
+.script-result-heading>span{padding:6px 9px;border:1px solid rgba(96,219,185,.24);border-radius:999px;color:#81dfc1;font-size:9px;font-weight:800;letter-spacing:.1em}
+.script-logline{margin:14px 0;color:#c3d9d9;font-size:13px;line-height:1.7;font-style:italic}
+.script-result pre{max-height:680px;overflow:auto;margin:15px 0 0;padding:18px;border:1px solid rgba(161,184,207,.13);border-radius:12px;background:rgba(2,8,17,.56);color:#e4eaf2;font:13px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.script-revision-notes{margin-top:16px;padding:14px;border-radius:12px;background:rgba(104,215,178,.07);color:#d4e9e3}
+.script-revision-notes strong{font-size:10px;letter-spacing:.1em;color:#81dfc1}
+.script-revision-notes p{margin:7px 0 0;font-size:12px;line-height:1.55}
+.script-scene-count{margin-top:13px;color:#94a9b7;font-size:11px}
