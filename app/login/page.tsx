@@ -22,7 +22,7 @@ export default function LoginPage() {
     if (mode === "signup") {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email, password,
-        options: { data: { display_name: displayName.trim() }, emailRedirectTo: `${window.location.origin}/auth/callback?next=/` }
+        options: { data: { display_name: displayName.trim() }, emailRedirectTo: `${window.location.origin}${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/auth/callback/?next=/` }
       });
       if (signUpError) setError(signUpError.message);
       else if (data.session) router.replace("/");
