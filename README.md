@@ -1,57 +1,63 @@
 # Cletus Tech Workspace
 
-A professional, free-first AI production workspace for planning and coordinating creative projects from the first brief through final delivery.
+A professional, free-first AI production web application. The long-term goal is to coordinate the complete workflow from creative brief and script through storyboard, visual generation, audio, editing and final delivery.
 
-## Product direction
+## Current capabilities
 
-This is a web application, not a marketing website or a directory of AI links. Its long-term workflow is:
+- Professional dark workspace dashboard
+- Supabase email/password sign-up and sign-in
+- Email confirmation callback
+- Private project creation and listing
+- Live counts from the user's AI provider registry and production queue
+- Owner-scoped data protected by Supabase Row Level Security
 
-1. Creative direction and production brief
-2. Script development and storyboard
-3. Character, location and visual references
-4. Video generation through interchangeable providers
-5. Voice, dialogue, music and sound design
-6. Editing, captions, review and export
-7. Project archive with prompts and source assets
+## Stack
 
-Provider connections are modular. A provider is only marked connected after its supported API or approved connection flow has been verified. A website URL alone does not grant programmatic control.
+- Next.js App Router + TypeScript
+- Supabase Auth, Postgres and private Storage
+- GitHub source control and GitHub Actions validation
+- Optional external AI providers added in later milestones
 
-## Technology
+Vercel hosting is intentionally deferred. Work locally first, then choose hosting when the app is ready.
 
-- Next.js 16 App Router + TypeScript
-- Supabase Postgres, Auth and Storage
-- GitHub as the source of truth
-- Optional provider APIs and approved browser-assisted workflows
-- FFmpeg for media assembly where execution resources permit
+## Local setup
 
-Vercel hosting is intentionally deferred until the local application foundation is ready.
-
-## Local development
-
-Requirements: Node.js 22 LTS or newer, npm, and Git.
+Requirements: Node.js 22 LTS or newer, npm and Git.
 
 ```bash
 git clone https://github.com/Cletus-Tech/Cletustech-workspace-.git
 cd Cletustech-workspace-
 npm install
-cp .env.example .env.local
-npm run dev
 ```
 
-Open http://localhost:3000.
+Copy `.env.example` to `.env.local` and configure:
 
-Add the Supabase project URL and publishable key to `.env.local` when the database integration is enabled. Never place a Supabase secret/service-role key in browser code or commit credentials to Git.
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://hibbcjkgppblkgvftawl.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+```
+
+Get the publishable key from Supabase Project Settings → API Keys → Publishable key. Do not use the service_role/secret key in browser code, and never commit `.env.local`.
+
+Run `npm run dev` and open http://localhost:3000.
+
+## Supabase authentication setup
+
+In Supabase Authentication → URL Configuration, add this local redirect URL:
+
+- `http://localhost:3000/auth/callback`
+
+Ensure the Supabase email provider is enabled. When hosted later, add the deployed app's callback URL too.
 
 ## Engineering principles
 
-- One main branch; small, understandable commits.
-- No fake connected states, fake job progress, or fake exports.
-- Save project context and each production stage independently.
-- Retry failed scenes or tasks without restarting an entire production.
-- Keep provider credentials out of Git and out of client-side storage.
+- Keep all development on the `main` branch.
+- Never display a provider as connected until its actual connection is verified.
+- Provider website links do not automatically grant API or browser control.
+- Keep provider passwords and raw API secrets out of database tables and Git.
+- Retry individual production steps without restarting an entire project.
 - Respect provider terms, quotas and account restrictions.
-- Design for a free-first start, with optional upgrades later.
 
 ## Current milestone
 
-Milestone 1: professional dashboard shell and application foundation. Project persistence, authentication, provider registry and production workflows are the next implementation steps.
+The dashboard, authentication flow and private project persistence are implemented. Next: editable AI provider registry, provider capability definitions and production workflow engine.
