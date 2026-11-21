@@ -221,3 +221,9 @@
 .script-revision-notes strong{font-size:10px;letter-spacing:.1em;color:#81dfc1}
 .script-revision-notes p{margin:7px 0 0;font-size:12px;line-height:1.55}
 .script-scene-count{margin-top:13px;color:#94a9b7;font-size:11px}
+
+
+.script-approval-row{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(157,185,190,.16)}
+.script-approval-row span{color:#9bb6b6;font-size:11px;line-height:1.5}
+.script-approval-row .primary-button{min-height:40px;padding:0 15px;font-size:12px;white-space:nowrap}
+@media(max-width:600px){.script-approval-row{align-items:stretch;flex-direction:column}.script-approval-row .primary-button{width:100%}}
