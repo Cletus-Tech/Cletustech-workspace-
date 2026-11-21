@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return reply({ error: "A valid JSON request is required." }, 400); }
   const projectId = body.project_id;
   const action = body.action ?? "analyze";
-  if (!projectId || !["analyze", "concepts"].includes(action)) {
+  if (!projectId || !["analyze", "concepts", "script", "refine"].includes(action)) {
     return reply({ error: "A project ID and supported action are required." }, 400);
   }
 
@@ -73,21 +73,35 @@ Deno.serve(async (req: Request) => {
   const intake = metadata.intake && typeof metadata.intake === "object" ? metadata.intake as Record<string, unknown> : {};
   const bible = metadata.production_bible && typeof metadata.production_bible === "object" ? metadata.production_bible : {};
   const existingAnalysis = metadata.project_analysis;
+  const selectedConcept = metadata.selected_concept;
+  const scriptDraft = metadata.script_draft;
 
   if (action === "concepts" && !existingAnalysis) {
     return reply({ error: "Run the project analysis before developing concepts." }, 409);
   }
+  if (action === "script" && !selectedConcept) {
+    return reply({ error: "Choose a creative concept before writing the screenplay." }, 409);
+  }
+  if (action === "refine" && !scriptDraft) {
+    return reply({ error: "Create a first script draft before requesting refinement." }, 409);
+  }
 
-  const system = action === "analyze"
-    ? "You are the senior Project Analyzer in a professional film and video production studio. Understand the user's idea deeply before production. Do not write the full script yet. Return only valid JSON with keys: creative_thesis (string), objective (string), audience_insight (string), core_message (string), emotional_journey (array of strings), genre_and_tone (string), recommended_format (string), recommended_duration (string), visual_direction (string), storytelling_approach (string), production_considerations (array of strings), risks_and_sensitivities (array of strings), clarification_questions (array of strings). Be specific, thoughtful, culturally aware and practical. Never invent factual research; distinguish creative interpretation from facts."
-    : "You are the Concept Developer in a professional film and video production studio. Based on the approved project analysis, propose exactly three clearly different creative concepts. Return only valid JSON with key concepts: an array of exactly three objects. Each object must have id (concept_1, concept_2, concept_3), title, logline, synopsis, creative_approach, emotional_hook, visual_identity, audience_appeal, strengths (array), production_complexity (low, medium or high), and estimated_duration. Make the concepts meaningfully different, not cosmetic variations. Do not write the full script yet.";
+  const prompts: Record<string, string> = {
+    analyze: "You are the senior Project Analyzer in a professional film and video production studio. Understand the user's idea deeply before production. Do not write the full script yet. Return only valid JSON with keys: creative_thesis (string), objective (string), audience_insight (string), core_message (string), emotional_journey (array of strings), genre_and_tone (string), recommended_format (string), recommended_duration (string), visual_direction (string), storytelling_approach (string), production_considerations (array of strings), risks_and_sensitivities (array of strings), clarification_questions (array of strings). Be specific, thoughtful, culturally aware and practical. Never invent factual research; distinguish creative interpretation from facts.",
+    concepts: "You are the Concept Developer in a professional film and video production studio. Based on the approved project analysis, propose exactly three clearly different creative concepts. Return only valid JSON with key concepts: an array of exactly three objects. Each object must have id (concept_1, concept_2, concept_3), title, logline, synopsis, creative_approach, emotional_hook, visual_identity, audience_appeal, strengths (array), production_complexity (low, medium or high), and estimated_duration. Make the concepts meaningfully different, not cosmetic variations. Do not write the full script yet.",
+    script: "You are the lead Screenwriter. Write a complete, production-ready screenplay based on the selected concept and project analysis. Do not replace the chosen concept with a different story. Return only valid JSON with keys: title, logline, screenplay (full formatted screenplay as a string with scene headings, action and dialogue), scene_breakdown (array of objects with scene_number, heading, action, dialogue, camera_direction, audio_direction, continuity_notes, duration_seconds), characters (array), locations (array), estimated_total_duration, and writer_notes. Give dialogue natural human rhythm, clear motivations, visual storytelling, meaningful interaction and a satisfying progression. Avoid filler and rushed endings.",
+    refine: "You are the senior Script Editor and Story Consultant. Refine the existing screenplay without losing its approved premise, character intent or essential message. Strengthen hooks, scene transitions, dialogue, emotional logic, pacing, character interaction and ending. Return only valid JSON with the same screenplay keys: title, logline, screenplay, scene_breakdown, characters, locations, estimated_total_duration, writer_notes, plus revision_notes (array of concrete changes) and pacing_notes (string). Preserve production practicality and continuity."
+  };
+  const system = prompts[action];
 
   const userInput = {
     project: { name: project.name, production_type: project.production_type, description: project.description, target_duration_seconds: project.target_duration_seconds },
     original_intake: intake,
     production_bible: bible,
-    previous_analysis: action === "concepts" ? existingAnalysis : undefined,
-    instruction: action === "analyze" ? "Analyze the idea and recommend the strongest creative direction." : "Develop three alternative concepts for the user's approval."
+    previous_analysis: existingAnalysis,
+    selected_concept: selectedConcept,
+    existing_script: action === "refine" ? scriptDraft : undefined,
+    instruction: ({ analyze: "Analyze the idea and recommend the strongest creative direction.", concepts: "Develop three alternative concepts for the user's approval.", script: "Write the complete screenplay for the selected concept.", refine: "Refine the screenplay while preserving its approved creative direction." } as Record<string, string>)[action]
   };
 
   const { data: jobs } = await supabase.from("production_jobs")
@@ -123,16 +137,17 @@ Deno.serve(async (req: Request) => {
     if (!result || typeof result !== "object" || Array.isArray(result)) {
       throw new Error("The AI provider returned an unexpected response structure.");
     }
-    if (action === "analyze" && typeof result.creative_thesis !== "string") {
-      throw new Error("The project analysis was incomplete. Please retry.");
-    }
-    if (action === "concepts" && (!Array.isArray(result.concepts) || result.concepts.length !== 3)) {
-      throw new Error("The concept developer must return exactly three complete concepts. Please retry.");
-    }
+    if (action === "analyze" && typeof result.creative_thesis !== "string") throw new Error("The project analysis was incomplete. Please retry.");
+    if (action === "concepts" && (!Array.isArray(result.concepts) || result.concepts.length !== 3)) throw new Error("The concept developer must return exactly three complete concepts. Please retry.");
+    if ((action === "script" || action === "refine") && typeof result.screenplay !== "string") throw new Error("The screenplay response was incomplete. Please retry.");
 
     const nextMetadata = action === "analyze"
       ? { ...metadata, project_analysis: result, concept_options: null, creative_stage: "analysis_complete" }
-      : { ...metadata, concept_options: result.concepts, creative_stage: "awaiting_concept_selection" };
+      : action === "concepts"
+        ? { ...metadata, concept_options: result.concepts, creative_stage: "awaiting_concept_selection" }
+        : action === "script"
+          ? { ...metadata, script_draft: result, refined_script: null, creative_stage: "script_draft_ready" }
+          : { ...metadata, refined_script: result, creative_stage: "script_refined" };
 
     const { error: saveError } = await supabase.from("projects")
       .update({ metadata: nextMetadata, updated_at: new Date().toISOString() })
@@ -140,7 +155,7 @@ Deno.serve(async (req: Request) => {
     if (saveError) throw new Error("The AI response was created but could not be saved: " + saveError.message);
 
     if (jobId) {
-      const stage = action === "analyze" ? "analysis" : "concepts";
+      const stage = ({ analyze: "analysis", concepts: "concepts", script: "script", refine: "refinement" } as Record<string, string>)[action];
       await supabase.from("production_steps").update({
         status: action === "analyze" ? "succeeded" : "waiting_for_approval",
         output_payload: result,
@@ -160,7 +175,7 @@ Deno.serve(async (req: Request) => {
     const message = error instanceof Error ? error.message : "The creative AI request failed.";
     if (jobId) {
       await supabase.from("production_jobs").update({ status: "failed", error_message: message.slice(0, 1000), updated_at: new Date().toISOString() }).eq("id", jobId).eq("owner_id", authData.user.id);
-      await supabase.from("production_steps").update({ status: "failed", error_message: message.slice(0, 1000), updated_at: new Date().toISOString() }).eq("job_id", jobId).eq("owner_id", authData.user.id).eq("stage", action === "analyze" ? "analysis" : "concepts");
+      await supabase.from("production_steps").update({ status: "failed", error_message: message.slice(0, 1000), updated_at: new Date().toISOString() }).eq("job_id", jobId).eq("owner_id", authData.user.id).eq("stage", ({ analyze: "analysis", concepts: "concepts", script: "script", refine: "refinement" } as Record<string, string>)[action]);
     }
     return reply({ error: message }, 502);
   }
