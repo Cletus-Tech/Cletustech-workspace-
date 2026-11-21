@@ -149,8 +149,27 @@ export default function ProjectWorkspacePage() {
     const metadata = { ...(project.metadata ?? {}), selected_concept: concept, creative_stage: "concept_selected" };
     const { error: updateError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
     setSaving(false);
-    if (updateError) setError(updateError.message);
-    else { setSelectedConceptId(concept.id); setNotice("Concept selected and saved. Script development is the next production stage."); await load(); }
+    if (updateError) { setError(updateError.message); return; }
+    setSelectedConceptId(concept.id);
+    const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
+    if (workflowJob) {
+      const { error: conceptStepError } = await supabase.from("production_steps")
+        .update({ status: "succeeded", output_payload: { selected_concept: concept }, updated_at: new Date().toISOString() })
+        .eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "concepts");
+      const { error: scriptStepError } = await supabase.from("production_steps")
+        .update({ status: "ready", input_payload: { selected_concept_id: concept.id, instruction: "Write the complete screenplay for the approved concept." }, updated_at: new Date().toISOString() })
+        .eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "script");
+      const { error: jobUpdateError } = await supabase.from("production_jobs")
+        .update({ status: "queued", output_payload: { selected_concept: concept }, updated_at: new Date().toISOString() })
+        .eq("id", workflowJob.id).eq("owner_id", user.id);
+      if (conceptStepError || scriptStepError || jobUpdateError) {
+        setError("Your concept was saved, but the production hand-off needs attention: " + (conceptStepError?.message || scriptStepError?.message || jobUpdateError?.message));
+        await load();
+        return;
+      }
+    }
+    setNotice("Concept selected and saved. The script-writing stage is now ready for development.");
+    await load();
   }
 
   async function saveBrief(event: React.FormEvent<HTMLFormElement>) {
