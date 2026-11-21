@@ -20,6 +20,7 @@ type Scene = {
 type Asset = { id: string; asset_type: string; storage_bucket: string; storage_path: string; file_name: string; mime_type: string | null; file_size_bytes: number | null; created_at: string };
 type Job = { id: string; title: string; job_type: string; status: string; created_at: string };
 type Step = { id: string; job_id: string; step_order: number; stage: string; title: string; status: string; attempts: number };
+type CreativeConcept = { id: string; title: string; logline: string; synopsis: string; creative_approach: string; emotional_hook: string; visual_identity: string; audience_appeal: string; strengths: string[]; production_complexity: string; estimated_duration: string };
 
 const emptyBible: Bible = { characters: "", locations: "", visual_style: "", audio_style: "", rules: "" };
 const pipeline = [
@@ -59,6 +60,11 @@ export default function ProjectWorkspacePage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [conceptBusy, setConceptBusy] = useState(false);
+  const [projectAnalysis, setProjectAnalysis] = useState<Record<string, unknown> | null>(null);
+  const [concepts, setConcepts] = useState<CreativeConcept[]>([]);
+  const [selectedConceptId, setSelectedConceptId] = useState("");
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -75,6 +81,11 @@ export default function ProjectWorkspacePage() {
     else {
       const p = projectResult.data as Project;
       setProject(p);
+      const savedMetadata = p.metadata ?? {};
+      setProjectAnalysis(savedMetadata.project_analysis && typeof savedMetadata.project_analysis === "object" ? savedMetadata.project_analysis as Record<string, unknown> : null);
+      setConcepts(Array.isArray(savedMetadata.concept_options) ? savedMetadata.concept_options as CreativeConcept[] : []);
+      const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
+      setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
       setAspectRatio(p.aspect_ratio ?? "16:9");
       setDuration(p.target_duration_seconds?.toString() ?? "");
@@ -115,6 +126,32 @@ export default function ProjectWorkspacePage() {
 
   const activeJob = jobs[0] ?? null;
   const activeSteps = useMemo(() => activeJob ? steps.filter(step => step.job_id === activeJob.id) : [], [activeJob, steps]);
+
+  async function runCreativeStage(action: "analyze" | "concepts") {
+    if (!project) return;
+    if (action === "concepts" && !projectAnalysis) { setError("Complete project analysis before developing concepts."); return; }
+    if (action === "analyze") setAnalysisBusy(true); else setConceptBusy(true);
+    setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("creative-director", { body: { project_id: project.id, action } });
+    if (action === "analyze") setAnalysisBusy(false); else setConceptBusy(false);
+    if (invokeError) {
+      setError(invokeError.message + (invokeError.message.includes("AI_PROVIDER_NOT_CONFIGURED") ? "" : " If the AI provider is not configured, add its secrets in Supabase Edge Function settings."));
+      return;
+    }
+    if (data?.error) { setError(String(data.error)); return; }
+    setNotice(action === "analyze" ? "Project analysis is complete. Review the direction, then develop alternative concepts." : "Three creative concepts are ready for your review.");
+    await load();
+  }
+
+  async function chooseConcept(concept: CreativeConcept) {
+    if (!project || !user) return;
+    setSaving(true); setError(""); setNotice("");
+    const metadata = { ...(project.metadata ?? {}), selected_concept: concept, creative_stage: "concept_selected" };
+    const { error: updateError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
+    setSaving(false);
+    if (updateError) setError(updateError.message);
+    else { setSelectedConceptId(concept.id); setNotice("Concept selected and saved. Script development is the next production stage."); await load(); }
+  }
 
   async function saveBrief(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -275,6 +312,31 @@ export default function ProjectWorkspacePage() {
         <div className="project-studio-hero"><div><span className="section-kicker">YOUR PRODUCTION STUDIO</span><h1>{project.name}</h1><p>Shape the story, preserve creative continuity and organise every asset before production.</p></div><div className="project-hero-meta"><span>{project.production_type.replaceAll("_", " ")}</span><span>{scenes.length} scenes</span></div></div>
         {notice && <div className="notice creative-notice" role="status">{notice}<button onClick={() => setNotice("")}>Dismiss</button></div>}
         {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError("")}>Dismiss</button></div>}
+        <section className="creative-director-panel">
+          <div className="creative-director-heading">
+            <div><span className="section-kicker">AI CREATIVE DEPARTMENT</span><h2>Understand the idea before making the film.</h2><p>The analyzer interprets your brief first. The concept developer then creates distinct creative directions for you to choose from.</p></div>
+            <div className="director-orbit"><span>CT</span><i /><b /></div>
+          </div>
+          <div className="director-actions">
+            <div className="director-action-card"><span className="director-number">01</span><div><strong>Project Analyzer</strong><p>Purpose, audience, message, emotional journey and visual direction.</p><button className="primary-button" onClick={() => void runCreativeStage("analyze")} disabled={analysisBusy || conceptBusy}>{analysisBusy ? "Analyzing your idea…" : projectAnalysis ? "Re-analyze project" : "Analyze this idea →"}</button></div><span className="director-state">{projectAnalysis ? "Analysis ready" : "Awaiting analysis"}</span></div>
+            <div className="director-action-card"><span className="director-number">02</span><div><strong>Concept Developer</strong><p>Three meaningfully different story concepts, prepared for your approval.</p><button className="secondary-button" onClick={() => void runCreativeStage("concepts")} disabled={!projectAnalysis || analysisBusy || conceptBusy}>{conceptBusy ? "Developing concepts…" : concepts.length ? "Generate new concepts" : "Develop concepts →"}</button></div><span className="director-state">{concepts.length ? concepts.length + " concepts ready" : "After analysis"}</span></div>
+          </div>
+          {projectAnalysis && <div className="analysis-result">
+            <div className="analysis-result-top"><span>PROJECT ANALYSIS</span><span>AI CREATIVE BRIEF</span></div>
+            <h3>{String(projectAnalysis.creative_thesis ?? "Creative direction")}</h3>
+            <div className="analysis-insight-grid">
+              <div><small>OBJECTIVE</small><p>{String(projectAnalysis.objective ?? "")}</p></div>
+              <div><small>CORE MESSAGE</small><p>{String(projectAnalysis.core_message ?? "")}</p></div>
+              <div><small>AUDIENCE INSIGHT</small><p>{String(projectAnalysis.audience_insight ?? "")}</p></div>
+              <div><small>GENRE & TONE</small><p>{String(projectAnalysis.genre_and_tone ?? "")}</p></div>
+              <div><small>STORYTELLING APPROACH</small><p>{String(projectAnalysis.storytelling_approach ?? "")}</p></div>
+              <div><small>VISUAL DIRECTION</small><p>{String(projectAnalysis.visual_direction ?? "")}</p></div>
+            </div>
+            {Array.isArray(projectAnalysis.emotional_journey) && <div className="analysis-tags"><small>EMOTIONAL JOURNEY</small>{(projectAnalysis.emotional_journey as string[]).map((item,index)=><span key={index}>{item}</span>)}</div>}
+          </div>}
+          {concepts.length > 0 && <div className="concept-results"><div className="concept-results-heading"><div><span className="section-kicker">YOUR CREATIVE OPTIONS</span><h3>Choose the direction worth developing.</h3></div><span>{concepts.length} ALTERNATIVES</span></div><div className="concept-card-grid">{concepts.map((concept,index)=><article className={"concept-card " + (selectedConceptId===concept.id ? "concept-selected" : "")} key={concept.id}><div className="concept-card-top"><span>CONCEPT 0{index+1}</span>{selectedConceptId===concept.id && <b>SELECTED</b>}</div><h4>{concept.title}</h4><p className="concept-logline">{concept.logline}</p><p>{concept.synopsis}</p><div className="concept-detail"><small>CREATIVE APPROACH</small><p>{concept.creative_approach}</p></div><div className="concept-detail"><small>VISUAL IDENTITY</small><p>{concept.visual_identity}</p></div><div className="concept-card-meta"><span>{concept.production_complexity} complexity</span><span>{concept.estimated_duration}</span></div><button className={selectedConceptId===concept.id ? "secondary-button" : "primary-button"} onClick={() => void chooseConcept(concept)} disabled={saving}>{selectedConceptId===concept.id ? "Selected ✓" : "Choose this concept →"}</button></article>)}</div></div>}
+          <p className="director-footnote">AI processing runs securely on the server. Your provider key is never placed in the browser or saved in project metadata.</p>
+        </section>
         <div className="project-overview-grid creative-overview-grid"><div className="project-overview-card"><span>SCENES PLANNED</span><strong>{scenes.length}</strong></div><div className="project-overview-card"><span>FRAME FORMAT</span><strong>{aspectRatio}</strong></div><div className="project-overview-card"><span>TARGET LENGTH</span><strong>{duration ? duration + "s" : "Not set"}</strong></div><div className="project-overview-card"><span>PROJECT ASSETS</span><strong>{assets.length}</strong></div></div>
         <div className="project-detail-grid creative-project-grid">
           <section className="panel brief-panel creative-panel"><div className="panel-heading"><div><h2>Creative brief</h2><p>The central idea and production constraints.</p></div><span className="brief-status">Project context</span></div><form onSubmit={saveBrief} className="brief-form"><label htmlFor="brief-description">What is this production about?</label><textarea id="brief-description" rows={7} value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe the story, purpose, audience, mood, key message and anything the production must preserve…" /><div className="brief-fields"><div><label htmlFor="aspect-ratio">Frame format</label><select id="aspect-ratio" value={aspectRatio} onChange={e => setAspectRatio(e.target.value)}><option>16:9</option><option>9:16</option><option>1:1</option><option>4:5</option><option>2.39:1</option></select></div><div><label htmlFor="target-duration">Target duration (seconds)</label><input id="target-duration" type="number" min="1" max="7200" value={duration} onChange={e => setDuration(e.target.value)} placeholder="e.g. 60" /></div></div><button className="primary-button" disabled={saving}>{saving ? "Saving…" : "Save creative brief"}</button></form></section>
