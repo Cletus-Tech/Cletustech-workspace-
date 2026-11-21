@@ -120,6 +120,15 @@ Deno.serve(async (req: Request) => {
     const content = payload.choices?.[0]?.message?.content;
     if (typeof content !== "string" || !content.trim()) throw new Error("The AI provider returned an empty response.");
     const result = parseJson(content);
+    if (!result || typeof result !== "object" || Array.isArray(result)) {
+      throw new Error("The AI provider returned an unexpected response structure.");
+    }
+    if (action === "analyze" && typeof result.creative_thesis !== "string") {
+      throw new Error("The project analysis was incomplete. Please retry.");
+    }
+    if (action === "concepts" && (!Array.isArray(result.concepts) || result.concepts.length !== 3)) {
+      throw new Error("The concept developer must return exactly three complete concepts. Please retry.");
+    }
 
     const nextMetadata = action === "analyze"
       ? { ...metadata, project_analysis: result, concept_options: null, creative_stage: "analysis_complete" }
