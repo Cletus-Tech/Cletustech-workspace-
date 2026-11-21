@@ -142,12 +142,12 @@ Deno.serve(async (req: Request) => {
     if ((action === "script" || action === "refine") && typeof result.screenplay !== "string") throw new Error("The screenplay response was incomplete. Please retry.");
 
     const nextMetadata = action === "analyze"
-      ? { ...metadata, project_analysis: result, concept_options: null, creative_stage: "analysis_complete" }
+      ? { ...metadata, project_analysis: result, concept_options: null, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, creative_stage: "analysis_complete" }
       : action === "concepts"
-        ? { ...metadata, concept_options: result.concepts, creative_stage: "awaiting_concept_selection" }
+        ? { ...metadata, concept_options: result.concepts, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, creative_stage: "awaiting_concept_selection" }
         : action === "script"
-          ? { ...metadata, script_draft: result, refined_script: null, creative_stage: "script_draft_ready" }
-          : { ...metadata, refined_script: result, creative_stage: "script_refined" };
+          ? { ...metadata, script_draft: result, refined_script: null, approved_script: null, creative_stage: "script_draft_ready" }
+          : { ...metadata, refined_script: result, approved_script: null, creative_stage: "script_refined" };
 
     const { error: saveError } = await supabase.from("projects")
       .update({ metadata: nextMetadata, updated_at: new Date().toISOString() })
