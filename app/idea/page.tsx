@@ -32,7 +32,8 @@ export default function IdeaIntakePage() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getUser().then(({ data, error: authError }) => {
+    supabase.auth.getUser().then((result: Awaited<ReturnType<typeof supabase.auth.getUser>>) => {
+      const { data, error: authError } = result;
       if (!active) return;
       if (authError || !data.user) router.replace("/login");
       else setUserId(data.user.id);
