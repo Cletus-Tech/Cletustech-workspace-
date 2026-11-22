@@ -118,7 +118,7 @@ export default function ToolsPage() {
             : "Starter multimodal provider profile. API key verification is required; automated generation awaits its production worker adapter.",
         }))).select("id,name");
         if (!seedError && seededProviders?.length) {
-          const { error: accountSeedError } = await supabase.from("provider_accounts").insert(seededProviders.map(provider => ({
+          const { error: accountSeedError } = await supabase.from("provider_accounts").insert(seededProviders.map((provider: { id: string; name: string }) => ({
             owner_id: currentUser.id,
             provider_id: provider.id,
             label: "Primary account",
