@@ -266,7 +266,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const nextMetadata = { ...metadata, production_route: routePlan, production_route_approved: false, creative_stage: "provider_routing_ready" };
+  const nextMetadata = { ...metadata, production_route: routePlan, production_route_approved: false, generation_manifest: null, generation_manifest_status: null, creative_stage: "provider_routing_ready" };
   const { error: metadataError } = await supabase.from("projects").update({
     metadata: nextMetadata, updated_at: new Date().toISOString(),
   }).eq("id", projectId).eq("owner_id", ownerId);
