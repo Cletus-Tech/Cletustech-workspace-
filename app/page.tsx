@@ -13,7 +13,7 @@ import {
 const navigation = [
   { label: "Dashboard", sub: "Empire Hall", icon: HomeIcon, href: "/" },
   { label: "Academy", sub: "Courses & paths", icon: GraduationCap, href: "/academy" },
-  { label: "Code Studio", sub: "Practice live", icon: Code2 },
+  { label: "Code Studio", sub: "Practice live", icon: Code2, href: "/studio" },
   { label: "Challenge Arena", sub: "Daily challenges", icon: Target },
   { label: "Examination Centre", sub: "Test & assess", icon: ShieldCheck },
   { label: "Trophy Gallery", sub: "Achievements", icon: Medal },
