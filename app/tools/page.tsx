@@ -157,7 +157,10 @@ export default function ToolsPage() {
     };
     const result = editing
       ? await supabase.from("ai_providers").update(payload).eq("id", editing.id)
-      : await supabase.from("ai_providers").insert({ ...payload, owner_id: user.id });
+      : await supabase.from("ai_providers").insert({
+          owner_id: user.id, name: payload.name, category: payload.category,
+          website_url: payload.website_url, connection_type: payload.connection_type, notes: payload.notes
+        });
     setBusy(false);
     if (result.error) { setError(result.error.message); return; }
     setShowForm(false); setNotice(editing ? "Provider details updated." : "AI provider added to your registry.");
@@ -199,7 +202,11 @@ export default function ToolsPage() {
     };
     const result = editingAccount
       ? await supabase.from("provider_accounts").update(payload).eq("id", editingAccount.id).eq("owner_id", user.id)
-      : await supabase.from("provider_accounts").insert({ ...payload, owner_id: user.id, provider_id: accountProvider.id });
+      : await supabase.from("provider_accounts").insert({
+          owner_id: user.id, provider_id: accountProvider.id, label: payload.label,
+          external_account_label: payload.external_account_label, connection_method: payload.connection_method,
+          notes: payload.notes
+        });
     setBusy(false);
     if (result.error) { setError(result.error.message); return; }
     setShowAccountForm(false); setNotice(editingAccount ? "Provider account details updated." : "Account profile added. It is not connected yet.");
