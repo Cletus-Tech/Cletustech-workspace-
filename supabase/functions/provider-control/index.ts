@@ -69,7 +69,55 @@ async function callAdminRpc(url: string, functionName: string, args: Record<stri
   return await response.json();
 }
 
-async function fetchModels(baseUrl: string, apiKey: string) {
+async function verifyProviderKey(baseUrl: string, apiKey: string, providerName: string) {
+  if (providerName.trim().toLowerCase() === "openrouter") {
+    const keyCheck = await fetch(baseUrl + "/key", {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + apiKey, "Accept": "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!keyCheck.ok) throw new Error(keyCheck.status === 401 || keyCheck.status === 403
+      ? "OpenRouter rejected this API key. Check its status in your OpenRouter account."
+      : "OpenRouter key verification failed (HTTP " + keyCheck.status + ").");
+  }
+}
+
+async function verifyChatModel(baseUrl: string, apiKey: string, modelId: string) {
+  const modernTokenModels = /(^|[/:])(?:gpt-5|o1|o3|o4)/i.test(modelId);
+  const requestBody: Record<string, unknown> = {
+    model: modelId,
+    messages: [{ role: "user", content: "Reply with OK only." }],
+  };
+  if (modernTokenModels) requestBody.max_completion_tokens = 4;
+  else {
+    requestBody.max_tokens = 4;
+    requestBody.temperature = 0;
+  }
+  const response = await fetch(baseUrl + "/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+    signal: AbortSignal.timeout(25000),
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 401 || response.status === 403
+      ? "The provider rejected the API key during the model test."
+      : response.status === 402
+        ? "The provider account has insufficient balance or quota for this model."
+        : "The selected model failed its minimal chat-completion test (HTTP " + response.status + "). Choose another model or check provider access.");
+  }
+  const payload = await response.json();
+  if (!Array.isArray(payload?.choices) || payload.choices.length === 0) {
+    throw new Error("The selected model returned an unexpected chat-completion response.");
+  }
+}
+
+async function fetchModels(baseUrl: string, apiKey: string, providerName: string) {
+  await verifyProviderKey(baseUrl, apiKey, providerName);
   const response = await fetch(baseUrl + "/models", {
     method: "GET",
     headers: { "Authorization": "Bearer " + apiKey, "Accept": "application/json" },
@@ -162,7 +210,7 @@ Deno.serve(async (req: Request) => {
     const apiKey = body.api_key?.trim();
     if (!apiKey || apiKey.length < 8 || apiKey.length > 4096) return reply({ error: "Enter a valid API key in the secure connection form." }, 400);
 
-    const models = await fetchModels(baseUrl, apiKey);
+    const models = await fetchModels(baseUrl, apiKey, provider.name);
     if (action === "discover_models") {
       return reply({ ok: true, action, provider: provider.name, api_base_url: baseUrl, models });
     }
@@ -171,6 +219,10 @@ Deno.serve(async (req: Request) => {
     if (!modelId || !models.includes(modelId)) {
       return reply({ error: "Choose a model returned by the successful provider test before saving this connection.", models }, 422);
     }
+
+    // This small live request confirms the chosen model actually accepts chat completions.
+    // It may consume a minimal amount of the provider's quota.
+    await verifyChatModel(baseUrl, apiKey, modelId);
 
     const stored = await callAdminRpc(supabaseUrl, "store_provider_secret", {
       p_owner_id: ownerId,
