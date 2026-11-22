@@ -67,7 +67,7 @@ export default function Home() {
         <header className="topbar">
           <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={20}/></button>
           <div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div>
-          <div className="top-actions"><div className="search-box"><Search size={16}/><span>Search lessons, topics...</span><kbd>⌘ K</kbd></div><button className="help-button" aria-label="Help"><CircleHelp size={18}/></button><div className="top-avatar">CU</div></div>
+          <div className="top-actions"><Link href="/login" className="auth-entry">Sign in</Link><div className="search-box"><Search size={16}/><span>Search lessons, topics...</span><kbd>⌘ K</kbd></div><button className="help-button" aria-label="Help"><CircleHelp size={18}/></button><div className="top-avatar">CU</div></div>
         </header>
 
         <div className="content-wrap">
