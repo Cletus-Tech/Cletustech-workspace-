@@ -21,6 +21,8 @@ type Asset = { id: string; asset_type: string; storage_bucket: string; storage_p
 type Job = { id: string; title: string; job_type: string; status: string; created_at: string };
 type Step = { id: string; job_id: string; step_order: number; stage: string; title: string; status: string; attempts: number };
 type CreativeConcept = { id: string; title: string; logline: string; synopsis: string; creative_approach: string; emotional_hook: string; visual_identity: string; audience_appeal: string; strengths: string[]; production_complexity: string; estimated_duration: string };
+type StoryboardShot = { shot_number: number; shot_type: string; framing: string; camera_movement: string; visual_description: string; image_prompt: string; duration_seconds: number };
+type StoryboardScene = { scene_number: number; title: string; story_purpose: string; location: string; time_of_day: string; description: string; characters: string[]; dialogue: string; visual_prompt: string; camera_direction: string; audio_direction: string; continuity_notes: string; duration_seconds: number; shots: StoryboardShot[] };
 
 const emptyBible: Bible = { characters: "", locations: "", visual_style: "", audio_style: "", rules: "" };
 const pipeline = [
@@ -35,7 +37,8 @@ const stageDetails: Record<string, string> = {
   concepts: "Develop alternative creative directions for approval.",
   script: "Write the complete script for the selected concept.",
   refinement: "Improve storytelling, dialogue, pacing and emotional impact.",
-  storyboard: "Break the script into scenes, shots and continuity rules.",
+  storyboard: "Turn the approved screenplay into scene-by-scene shots for review.",
+  continuity: "Lock character, wardrobe, location, prop, lighting and camera consistency.",
   audio: "Prepare voiceover, dialogue, music and sound requirements.",
   generation: "Create approved visual and audio assets with connected providers.",
   assembly: "Edit, synchronise, review and export the final production."
@@ -77,6 +80,10 @@ export default function ProjectWorkspacePage() {
   const [scriptDraft, setScriptDraft] = useState<Record<string, unknown> | null>(null);
   const [refinedScript, setRefinedScript] = useState<Record<string, unknown> | null>(null);
   const [scriptApproved, setScriptApproved] = useState(false);
+  const [storyboard, setStoryboard] = useState<Record<string, unknown> | null>(null);
+  const [storyboardApproved, setStoryboardApproved] = useState(false);
+  const [continuityBible, setContinuityBible] = useState<Record<string, unknown> | null>(null);
+  const [continuityApproved, setContinuityApproved] = useState(false);
   const [selectedConceptId, setSelectedConceptId] = useState("");
 
   const load = useCallback(async () => {
@@ -100,6 +107,10 @@ export default function ProjectWorkspacePage() {
       setScriptDraft(savedMetadata.script_draft && typeof savedMetadata.script_draft === "object" ? savedMetadata.script_draft as Record<string, unknown> : null);
       setRefinedScript(savedMetadata.refined_script && typeof savedMetadata.refined_script === "object" ? savedMetadata.refined_script as Record<string, unknown> : null);
       setScriptApproved(Boolean(savedMetadata.approved_script));
+      setStoryboard(savedMetadata.storyboard && typeof savedMetadata.storyboard === "object" ? savedMetadata.storyboard as Record<string, unknown> : null);
+      setStoryboardApproved(Boolean(savedMetadata.storyboard_approved));
+      setContinuityBible(savedMetadata.continuity_bible && typeof savedMetadata.continuity_bible === "object" ? savedMetadata.continuity_bible as Record<string, unknown> : null);
+      setContinuityApproved(Boolean(savedMetadata.continuity_approved));
       const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
       setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
@@ -143,11 +154,13 @@ export default function ProjectWorkspacePage() {
   const activeJob = jobs.find(job => job.job_type === "idea_to_video") ?? jobs[0] ?? null;
   const activeSteps = useMemo(() => activeJob ? steps.filter(step => step.job_id === activeJob.id) : [], [activeJob, steps]);
 
-  async function runCreativeStage(action: "analyze" | "concepts" | "script" | "refine") {
+  async function runCreativeStage(action: "analyze" | "concepts" | "script" | "refine" | "storyboard" | "continuity") {
     if (!project) return;
     if (action === "concepts" && !projectAnalysis) { setError("Complete project analysis before developing concepts."); return; }
     if (action === "script" && !selectedConceptId) { setError("Choose a concept before writing the screenplay."); return; }
     if (action === "refine" && !scriptDraft) { setError("Create a script draft before refining it."); return; }
+    if (action === "storyboard" && !scriptApproved) { setError("Approve the screenplay before creating its storyboard."); return; }
+    if (action === "continuity" && (!scriptApproved || !storyboardApproved)) { setError("Approve the storyboard before building continuity references."); return; }
     if (action === "analyze") setAnalysisBusy(true); else if (action === "concepts") setConceptBusy(true); else setSaving(true);
     setError(""); setNotice("");
     const { data, error: invokeError } = await supabase.functions.invoke("creative-director", { body: { project_id: project.id, action } });
@@ -165,7 +178,14 @@ export default function ProjectWorkspacePage() {
       return;
     }
     if (data?.error) { setError(String(data.error)); return; }
-    setNotice(({ analyze: "Project analysis is complete. Review the direction, then develop alternative concepts.", concepts: "Three creative concepts are ready for your review.", script: "Your first screenplay draft is ready for review.", refine: "The script editor has completed its refinement. Review the revised screenplay." } as Record<string, string>)[action]);
+    setNotice(({
+      analyze: "Project analysis is complete. Review the direction, then develop alternative concepts.",
+      concepts: "Three creative concepts are ready for your review.",
+      script: "Your first screenplay draft is ready for review.",
+      refine: "The script editor has completed its refinement. Review the revised screenplay.",
+      storyboard: "The storyboard is ready. Review the scenes and shot directions before approving it.",
+      continuity: "The continuity bible is ready. Review the identity and visual rules before approving it."
+    } as Record<string, string>)[action]);
     await load();
   }
 
