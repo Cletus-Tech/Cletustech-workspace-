@@ -7,3 +7,46 @@
 @media(max-width:1050px){.sidebar{width:215px;flex-basis:215px}.hero-art{right:0;transform:translateY(-50%) scale(.85)}.hero-content{width:59%}.stats-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.sidebar{position:fixed;left:0;top:0;bottom:0;width:270px;transform:translateX(-102%);transition:transform .25s ease;box-shadow:20px 0 60px rgba(0,0,0,.35)}.sidebar-open{transform:translateX(0)}.mobile-close{display:block;margin-left:auto;border:0;background:none;color:#90a1b8}.scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);border:0;z-index:4}.mobile-menu{display:grid;place-items:center;border:0;background:none;color:#9badc5;padding:5px}.topbar{height:60px;padding:0 18px}.breadcrumb{margin-right:auto;margin-left:10px}.top-actions{gap:10px}.search-box{width:34px;justify-content:center;padding:0}.search-box span,.search-box kbd,.help-button{display:none}.content-wrap{padding:29px 17px 22px}.welcome-row{display:block}.welcome-row h1{font-size:30px}.date-chip{display:inline-flex;margin-top:15px}.hero-panel{min-height:440px;padding:25px 23px;align-items:flex-start}.hero-content{width:100%}.hero-content h2{font-size:39px}.hero-art{width:100%;height:210px;right:0;top:auto;bottom:3px;transform:scale(.78);transform-origin:center bottom}.hero-index{bottom:10px;right:12px}.hero-meta{gap:10px}.stats-grid{gap:9px}.stat-card{padding:12px;min-height:112px}.stat-caption{font-size:7px;letter-spacing:.5px}.stat-value{font-size:23px}.lower-grid{grid-template-columns:1fr}.section-heading{align-items:flex-end}.section-heading h3{font-size:14px}.text-button{font-size:9px}.panel{padding:16px}.footer-line{font-size:7px;letter-spacing:.5px}.welcome-toast{left:14px;right:14px;bottom:14px}.lesson-info span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}}
 @media(max-width:390px){.stats-grid{grid-template-columns:1fr 1fr}.hero-panel{min-height:455px}.hero-meta{font-size:8px}.hero-art{transform:scale(.68);bottom:-5px}.date-chip{font-size:8px}.footer-line span:last-child{display:none}}
+
+/* Academy and lesson routes */
+.route-wrap{max-width:1180px;margin:0 auto;padding:38px 4.4% 60px}
+.route-back{display:inline-flex;align-items:center;gap:8px;color:#91b9ed;text-decoration:none;font-size:11px;margin-bottom:24px}
+.route-title{font:750 clamp(27px,3vw,38px) Manrope,sans-serif;letter-spacing:-1.3px;margin:10px 0}
+.route-subtitle{color:#91a0b5;font-size:12px;line-height:1.7;max-width:690px}
+.route-kicker{font:9px 'DM Mono',monospace;letter-spacing:1.5px;color:#81b5f3}
+.academy-hero{padding:28px;border:1px solid rgba(92,145,215,.24);border-radius:14px;background:radial-gradient(ellipse at 90% 10%,rgba(63,126,218,.2),transparent 45%),linear-gradient(120deg,#10213a,#0d1728);margin:26px 0}
+.academy-hero-row{display:flex;justify-content:space-between;gap:20px;align-items:center}
+.academy-hero h2{font:750 26px Manrope;margin:10px 0 7px}
+.academy-hero p{font-size:11px;color:#a0b1c8;line-height:1.7;max-width:620px;margin:0}
+.course-chip{border:1px solid rgba(129,180,246,.3);padding:9px 12px;border-radius:7px;color:#a9cbf4;font:9px 'DM Mono',monospace;white-space:nowrap}
+.route-section-head{display:flex;justify-content:space-between;align-items:end;margin:30px 0 14px}
+.route-section-head h3{font:650 16px Manrope;margin:6px 0 0}
+.module-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.module-card{border:1px solid var(--line);background:linear-gradient(145deg,rgba(16,27,44,.94),rgba(12,20,33,.96));border-radius:11px;padding:17px;display:flex;gap:13px;align-items:flex-start}
+.module-index{width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:rgba(70,136,221,.13);border:1px solid rgba(103,157,229,.2);display:grid;place-items:center;color:#91bdff;font:10px 'DM Mono',monospace}
+.module-card h4{font:650 12px Manrope;margin:2px 0 6px}
+.module-card p{font-size:10px;line-height:1.6;color:#8192a9;margin:0}
+.module-meta{display:flex;gap:12px;margin-top:11px;color:#8298b5;font:8px 'DM Mono',monospace}
+.module-action{margin-left:auto;color:#8395ad;align-self:center}
+.module-card.available{border-color:rgba(93,154,239,.3);background:linear-gradient(145deg,rgba(24,47,76,.72),rgba(12,20,33,.96))}
+.module-card.available .module-action{color:#8fc1ff}
+.learning-note{margin-top:18px;border:1px solid rgba(112,151,205,.16);background:rgba(16,27,44,.55);border-radius:10px;padding:15px;color:#91a1b7;font-size:10px;line-height:1.7}
+.lesson-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;margin-top:25px;align-items:start}
+.lesson-main,.lesson-aside{border:1px solid var(--line);background:linear-gradient(145deg,rgba(16,27,44,.94),rgba(12,20,33,.96));border-radius:12px;padding:22px}
+.lesson-main h2{font:700 19px Manrope;margin:8px 0 12px}
+.lesson-main h3{font:650 14px Manrope;margin:24px 0 8px}
+.lesson-main p,.lesson-main li{font-size:11px;line-height:1.85;color:#a0aec2}
+.lesson-main code,.lesson-aside code{font:10px 'DM Mono',monospace;color:#a8d4ff;background:rgba(73,132,209,.12);padding:3px 5px;border-radius:4px}
+.code-sample{border:1px solid rgba(120,161,218,.2);border-radius:9px;background:#080f1b;padding:16px;margin:13px 0;color:#c7d8ee;font:11px/1.9 'DM Mono',monospace;white-space:pre-wrap}
+.practice-box{margin-top:24px;padding:17px;border:1px solid rgba(102,157,236,.24);border-radius:10px;background:rgba(38,78,128,.1)}
+.practice-box label{display:block;color:#b8cbe4;font-size:10px;margin-bottom:9px}
+.practice-box textarea{width:100%;min-height:88px;resize:vertical;background:#080f1b;border:1px solid rgba(130,165,212,.24);border-radius:7px;padding:11px;color:#e8f2ff;font:11px/1.7 'DM Mono',monospace;outline:none}
+.practice-box button,.lesson-next{margin-top:10px;border:1px solid rgba(132,183,248,.35);background:#286fca;color:#fff;border-radius:7px;padding:10px 13px;font-size:10px}
+.practice-feedback{margin-top:10px;font-size:10px;color:#9bd6b4}
+.practice-feedback.error{color:#ffb18e}
+.lesson-aside h3{font:650 12px Manrope;margin:0 0 13px}
+.lesson-aside p{font-size:10px;line-height:1.7;color:#899ab1}
+.lesson-step{padding:10px 0;border-bottom:1px solid rgba(136,162,199,.1);font-size:10px;color:#9aabc1}
+.lesson-step strong{display:block;color:#e0eafa;margin-bottom:4px}
+.lesson-aside .muted-note{font-size:9px;color:#71839b;margin-top:16px}
+@media(max-width:760px){.route-wrap{padding:26px 17px 45px}.academy-hero-row{display:block}.course-chip{display:inline-block;margin-top:17px}.module-grid{grid-template-columns:1fr}.lesson-layout{grid-template-columns:1fr}.lesson-aside{order:-1}.route-section-head{align-items:start;gap:10px;flex-direction:column}}
