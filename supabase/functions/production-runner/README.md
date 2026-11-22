@@ -47,3 +47,17 @@ Where relevant, narration, dialogue, music, sound-effect and ambience cues are a
 ## Secrets
 
 No provider secret is read from the database or returned to the client. Provider credentials belong in secure Edge Function secrets or a dedicated secret manager.
+
+## Trusted worker lease protocol
+
+The database migration also installs the control-plane primitives for a separately hosted worker:
+
+- `claim_production_tasks(worker_id, limit, lease_seconds)` atomically claims eligible tasks with row locking and `SKIP LOCKED`. Claims are limited to 1–10 tasks and 30–300 second leases.
+- `heartbeat_production_task(task_id, worker_id, lease_seconds)` extends only the current worker's unexpired lease.
+- `complete_production_task(task_id, worker_id, provider_job_id, result_asset_id)` accepts completion only from the current worker while its lease is valid.
+- `fail_production_task(task_id, worker_id, error, retry_delay_seconds)` records a bounded error and schedules a retry while attempts remain; otherwise it marks the task failed.
+- Expired leases can be reclaimed by another worker. Tasks at their retry limit are marked failed instead of being reclaimed.
+
+These RPCs are revoked from `PUBLIC`, `anon`, and `authenticated`, and executable only by `service_role`. Keep the service-role key exclusively in the trusted worker's server-side secret store. Never put it in Next.js browser variables, project metadata, task payloads, or client code.
+
+The worker itself and provider-specific adapters are **not deployed yet**. No task is currently being claimed or executed. The queue's browser-facing insert policy only permits `blocked_by_adapter` rows; an adapter must be implemented and verified by trusted server-side code before tasks can become eligible for claiming.
