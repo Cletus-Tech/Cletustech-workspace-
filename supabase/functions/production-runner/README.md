@@ -26,10 +26,11 @@ The function uses the caller's JWT and caller-scoped Supabase client. It only re
 
 ## Output
 
-The function persists `projects.metadata.generation_manifest` and copies it to the existing `generation` production step. Each scene shot gets:
+The function persists `projects.metadata.generation_manifest`, copies it to the existing `generation` production step, and inserts private, owner-scoped rows into `public.production_tasks` in batches of 100. Every planning pass receives a manifest UUID; each task key is unique within that manifest. Each scene shot gets:
 - an image-reference task
 - a video-clip task
-- stable task key (idempotency key)
+- stable task key (idempotency key within its manifest)
+- durable queue row linked to its project and production job
 - retry metadata (attempt count 0, maximum 2)
 - a truthful readiness state
 
