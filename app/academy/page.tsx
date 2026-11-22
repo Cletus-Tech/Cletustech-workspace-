@@ -21,7 +21,7 @@ export default function AcademyPage() {
         <Link className="ss-nav-item" href="/"><span>⌂</span><span><b>Dashboard</b><small>Empire Hall</small></span></Link>
         <Link className="ss-nav-item selected" href="/academy"><span>▤</span><span><b>Academy</b><small>Courses & paths</small></span></Link>
         <Link className="ss-nav-item" href="/academy/python-foundations"><span>⌘</span><span><b>Learning Room</b><small>Resume lesson</small></span></Link>
-      </nav>
+      <Link className="ss-nav-item" href="/studio"><span>⌘</span><span><b>Code Studio</b><small>Practice live</small></span></Link></nav>
       <div className="ss-account"><div className="ss-avatar">SS</div><div><b>Syntax learner</b><small>Learning workspace</small></div></div>
     </aside>
     <section className="ss-main">
