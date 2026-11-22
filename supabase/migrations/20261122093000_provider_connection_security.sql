@@ -151,3 +151,15 @@ begin
 end; $$;
 revoke all on function public.store_provider_connection(uuid,uuid,uuid,text,text,text,text,jsonb) from public,anon,authenticated;
 grant execute on function public.store_provider_connection(uuid,uuid,uuid,text,text,text,text,jsonb) to service_role;
+
+-- Disabling a provider must also clear its default-routing flag.
+create or replace function public.clear_default_ai_provider_when_disabled()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+begin
+  if new.is_enabled = false then new.is_default := false; end if;
+  return new;
+end; $$;
+revoke all on function public.clear_default_ai_provider_when_disabled() from public,anon,authenticated;
+drop trigger if exists ai_provider_disable_clears_default on public.ai_providers;
+create trigger ai_provider_disable_clears_default before update of is_enabled on public.ai_providers
+for each row execute function public.clear_default_ai_provider_when_disabled();
