@@ -1,28 +1,42 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, LockKeyhole } from "lucide-react";
+import { ArrowRight, BookOpen, Clock3, Code2, LockKeyhole, Play, Sparkles } from "lucide-react";
 
-const modules = [
-  { title: "Python foundations", description: "Understand what Python is, how it runs, and the tools used to write and execute programs.", lessons: "3 lessons", time: "1.5 hours", open: true },
-  { title: "Syntax and program structure", description: "Learn statements, indentation, case sensitivity, comments, and how Python code is organised.", lessons: "4 lessons", time: "2 hours" },
-  { title: "Variables and data types", description: "Name values, recognise core data types, and work confidently with stored information.", lessons: "5 lessons", time: "2.5 hours" },
-  { title: "Operators and expressions", description: "Use arithmetic, comparison, logical, and assignment operators to build expressions.", lessons: "5 lessons", time: "2.5 hours" },
-  { title: "Input, output and conversion", description: "Receive user input, display results, and convert values between data types.", lessons: "4 lessons", time: "2 hours" },
-  { title: "Comments and functions", description: "Document your code and break programs into reusable functions.", lessons: "4 lessons", time: "2 hours" },
-  { title: "Modules and Python help", description: "Import modules and use built-in help resources to explore Python capabilities.", lessons: "3 lessons", time: "1.5 hours" },
-  { title: "Files and practical programming", description: "Work with files and combine your skills in small practical programs.", lessons: "5 lessons", time: "4 hours" },
+const stages = [
+  ["01","Python foundations","What Python is, how it runs, and the tools used to build programs.","3 lessons","1.5 hrs","available"],
+  ["02","Syntax & program structure","Statements, indentation, case sensitivity and clean code structure.","4 lessons","2 hrs","locked"],
+  ["03","Variables & data types","Store information and understand Python's core value types.","5 lessons","2.5 hrs","locked"],
+  ["04","Operators & expressions","Build expressions with arithmetic, comparison and logical operators.","5 lessons","2.5 hrs","locked"],
+  ["05","Input, output & conversion","Receive input, display results and convert between data types.","4 lessons","2 hrs","locked"],
+  ["06","Comments & functions","Write readable code and organise reusable instructions.","4 lessons","2 hrs","locked"],
+  ["07","Modules & Python help","Import modules and discover Python's built-in tools.","3 lessons","1.5 hrs","locked"],
+  ["08","Files & practical programming","Work with files and combine your skills in useful programs.","5 lessons","4 hrs","locked"],
 ];
 
 export default function AcademyPage() {
-  return <main className="app-shell"><section className="main-area">
-    <header className="topbar"><Link className="route-back" href="/"> <ArrowLeft size={14}/> Syntax Studio</Link><div className="breadcrumb"><span>Workspace</span><span>/</span><strong>Academy</strong></div></header>
-    <div className="route-wrap">
-      <div className="route-kicker">THE LEARNING ENGINE / ACADEMY</div>
-      <h1 className="route-title">Choose your next skill.</h1>
-      <p className="route-subtitle">A structured pathway from first principles to practical confidence. Each stage builds on the last, with explanations, examples, exercises and mastery checks.</p>
-      <section className="academy-hero"><div className="academy-hero-row"><div><div className="route-kicker">CURRENT FOUNDATION PATH</div><h2>Python Mastery</h2><p>Start with the foundations of Python, then build toward writing and understanding complete programs. The course is being aligned with your CSC 201 lecture material before it is published as a final syllabus.</p></div><span className="course-chip">BEGINNER · 8 STAGES</span></div></section>
-      <div className="route-section-head"><div><div className="route-kicker">YOUR CURRICULUM</div><h3>Python learning pathway</h3></div><span className="course-chip">DRAFT CURRICULUM</span></div>
-      <div className="module-grid">{modules.map((module,index)=><article className={`module-card ${module.open ? "available" : ""}`} key={module.title}><div className="module-index">{String(index+1).padStart(2,"0")}</div><div><h4>{module.title}</h4><p>{module.description}</p><div className="module-meta"><span>{module.lessons}</span><span>{module.time}</span></div></div><div className="module-action">{module.open ? <Link href="/academy/python-foundations" aria-label="Open Python foundations"><ArrowRight size={17}/></Link> : <LockKeyhole size={16}/>}</div></article>)}</div>
-      <div className="learning-note"><BookOpen size={15} style={{display:"inline",verticalAlign:"-3px",marginRight:8}}/> This is a preliminary pathway based on the lecture topics identified so far. Later stages remain locked until their lessons and assessments are ready. No XP, grades or completion records are awarded by simply opening a lesson.</div>
-    </div>
-  </section></main>;
+  return <main className="ss-app academy-app">
+    <aside className="ss-sidebar">
+      <Link href="/" className="ss-brand"><span className="ss-brand-mark">S</span><span>Syntax<strong>Studio</strong></span></Link>
+      <div className="ss-nav-label">LEARNING SPACE</div>
+      <nav className="ss-nav">
+        <Link className="ss-nav-item" href="/"><span>⌂</span><span><b>Dashboard</b><small>Empire Hall</small></span></Link>
+        <Link className="ss-nav-item selected" href="/academy"><span>▤</span><span><b>Academy</b><small>Courses & paths</small></span></Link>
+        <Link className="ss-nav-item" href="/academy/python-foundations"><span>⌘</span><span><b>Learning Room</b><small>Resume lesson</small></span></Link>
+      </nav>
+      <div className="ss-account"><div className="ss-avatar">SS</div><div><b>Syntax learner</b><small>Learning workspace</small></div></div>
+    </aside>
+    <section className="ss-main">
+      <header className="ss-topbar"><Link href="/" className="academy-back">← Dashboard</Link><div className="ss-top-actions"><span className="ss-online"><i/>Academy</span><span className="ss-top-avatar">SS</span></div></header>
+      <div className="ss-content academy-content">
+        <div className="academy-intro"><div><span className="ss-welcome-pill">THE LEARNING ENGINE</span><h1>Build skills that<br/><em>move you forward.</em></h1><p>Structured learning paths. Real programming practice. Progress you can prove.</p></div><div className="academy-intro-art"><div className="academy-orbit"></div><div className="academy-python">Py</div><div className="academy-art-label">PYTHON<br/><b>MASTERY</b></div></div></div>
+        <div className="academy-section-title"><div><span className="ss-card-kicker">YOUR STARTING POINT</span><h2>Featured learning path</h2></div><span className="academy-status">FOUNDATION TRACK</span></div>
+        <article className="academy-feature">
+          <div className="academy-feature-art"><div className="academy-code-window"><div><i/><i/><i/><span>first_program.py</span></div><pre><b>def</b> <em>learn_python</em>():{"\n"}  skills = <strong>build()</strong>{"\n"}  <b>return</b> skills</pre><small>PYTHON 3.12 · BEGINNER</small></div><span className="academy-feature-number">01</span></div>
+          <div className="academy-feature-copy"><span className="ss-card-kicker">BEGINNER · 8 STAGES</span><h2>Python Mastery</h2><p>Start with the foundations, understand the language and gradually develop the confidence to write complete programs.</p><div className="academy-feature-meta"><span><BookOpen/> 33 lessons planned</span><span><Clock3/> 18 hours estimated</span><span><Code2/> Practical exercises</span></div><div className="academy-draft-note"><Sparkles/> Curriculum is being checked against your CSC 201 lecture material before publication.</div><Link href="/academy/python-foundations" className="ss-primary"><Play size={14} fill="currentColor"/> Enter learning room <ArrowRight size={16}/></Link></div>
+        </article>
+        <div className="academy-section-title"><div><span className="ss-card-kicker">THE CURRICULUM</span><h2>Your Python pathway</h2></div><span className="academy-status">8 STAGES</span></div>
+        <div className="academy-stage-grid">{stages.map(([number,title,desc,lessons,time,status])=><article className={`academy-stage ${status}`} key={number}><div className="academy-stage-top"><span>{number}</span>{status==="available"?<b>AVAILABLE</b>:<LockKeyhole size={15}/>}</div><h3>{title}</h3><p>{desc}</p><div className="academy-stage-bottom"><span>{lessons}</span><span>{time}</span>{status==="available"?<Link href="/academy/python-foundations" aria-label="Open Python foundations"><ArrowRight size={16}/></Link>:<span className="academy-lock">Locked</span>}</div></article>)}</div>
+        <p className="academy-footnote">This is a draft learning pathway. Later stages remain unavailable until their lessons and assessments are reviewed. Opening a lesson does not award XP or mark a course complete.</p>
+      </div>
+    </section>
+  </main>;
 }
