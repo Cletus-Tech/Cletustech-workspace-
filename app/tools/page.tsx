@@ -288,6 +288,7 @@ export default function ToolsPage() {
       {editingAccount && ["script","general"].includes(accountProvider.category) && <div className="provider-credential-panel">
         <div className="provider-credential-heading"><strong>Secure API connection</strong><span className={editingAccount.status === "connected" ? "provider-enabled" : "provider-disabled"}>{editingAccount.status.replaceAll("_"," ")}</span></div>
         <p>Supported language-model providers use a verified API endpoint. Your key is never saved in the account profile.</p>
+        <small className="provider-cost-note">Model connection includes one minimal test request. Your provider may charge a very small amount or count it against its quota.</small>
         {editingAccount.api_base_url && <small className="provider-endpoint">Endpoint: {editingAccount.api_base_url}</small>}
         <label htmlFor="provider-api-key">API key</label>
         <input id="provider-api-key" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={editingAccount.status === "connected" ? "Enter a new key only to rotate or re-test" : "Paste the provider API key"} autoComplete="new-password" />
