@@ -147,7 +147,7 @@ async function verifyMediaProvider(adapterKey: string, apiKey: string, baseUrl: 
   } else if (adapterKey === "fal_queue") {
     // A read-only status lookup against a deliberately nonexistent request checks auth
     // without submitting a generation or consuming inference credits.
-    response = await fetch(baseUrl + "/fal-ai/flux/dev/requests/00000000-0000-4000-8000-000000000000/status", {
+    response = await fetch(baseUrl + "/fal-ai/flux/requests/00000000-0000-4000-8000-000000000000/status", {
       method: "GET",
       headers: { "Authorization": "Key " + apiKey, "Accept": "application/json" },
       signal: AbortSignal.timeout(15000),
