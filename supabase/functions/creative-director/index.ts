@@ -163,13 +163,13 @@ Deno.serve(async (req: Request) => {
     if (action === "continuity" && (!Array.isArray(result.characters) || !Array.isArray(result.locations) || !Array.isArray(result.continuity_rules) || typeof result.master_visual_prompt !== "string")) throw new Error("The continuity bible response was incomplete. Please retry.");
 
     const nextMetadata = action === "analyze"
-      ? { ...metadata, project_analysis: result, concept_options: null, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, creative_stage: "analysis_complete" }
+      ? { ...metadata, project_analysis: result, concept_options: null, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, storyboard: null, storyboard_approved: false, continuity_bible: null, continuity_approved: false, creative_stage: "analysis_complete" }
       : action === "concepts"
-        ? { ...metadata, concept_options: result.concepts, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, creative_stage: "awaiting_concept_selection" }
+        ? { ...metadata, concept_options: result.concepts, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, storyboard: null, storyboard_approved: false, continuity_bible: null, continuity_approved: false, creative_stage: "awaiting_concept_selection" }
         : action === "script"
-          ? { ...metadata, script_draft: result, refined_script: null, approved_script: null, creative_stage: "script_draft_ready" }
+          ? { ...metadata, script_draft: result, refined_script: null, approved_script: null, storyboard: null, storyboard_approved: false, continuity_bible: null, continuity_approved: false, creative_stage: "script_draft_ready" }
           : action === "refine"
-            ? { ...metadata, refined_script: result, approved_script: null, creative_stage: "script_refined" }
+            ? { ...metadata, refined_script: result, approved_script: null, storyboard: null, storyboard_approved: false, continuity_bible: null, continuity_approved: false, creative_stage: "script_refined" }
             : action === "storyboard"
               ? { ...metadata, storyboard: result, storyboard_approved: false, continuity_bible: null, continuity_approved: false, creative_stage: "storyboard_ready" }
               : { ...metadata, continuity_bible: result, continuity_approved: false, creative_stage: "continuity_ready" };
@@ -181,18 +181,33 @@ Deno.serve(async (req: Request) => {
 
     if (jobId) {
       const stage = ({ analyze: "analysis", concepts: "concepts", script: "script", refine: "refinement", storyboard: "storyboard", continuity: "continuity" } as Record<string, string>)[action];
-      await supabase.from("production_steps").update({
+      const downstreamStages: Record<string, string[]> = {
+        analyze: ["concepts", "script", "refinement", "storyboard", "continuity", "audio", "generation", "assembly"],
+        concepts: ["script", "refinement", "storyboard", "continuity", "audio", "generation", "assembly"],
+        script: ["refinement", "storyboard", "continuity", "audio", "generation", "assembly"],
+        refine: ["storyboard", "continuity", "audio", "generation", "assembly"],
+        storyboard: ["continuity", "audio", "generation", "assembly"],
+        continuity: ["audio", "generation", "assembly"],
+      };
+      const { error: stageError } = await supabase.from("production_steps").update({
         status: action === "analyze" ? "succeeded" : "waiting_for_approval",
         output_payload: result,
         error_message: null,
         updated_at: new Date().toISOString(),
       }).eq("job_id", jobId).eq("owner_id", authData.user.id).eq("stage", stage);
+      if (stageError) throw new Error("The AI result was saved, but its production stage could not be updated: " + stageError.message);
 
-      await supabase.from("production_jobs").update({
+      const { error: resetError } = await supabase.from("production_steps").update({
+        status: "pending", output_payload: {}, error_message: null, updated_at: new Date().toISOString(),
+      }).eq("job_id", jobId).eq("owner_id", authData.user.id).in("stage", downstreamStages[action]);
+      if (resetError) throw new Error("The AI result was saved, but downstream stages could not be reset: " + resetError.message);
+
+      const { error: jobUpdateError } = await supabase.from("production_jobs").update({
         status: "waiting_for_approval",
         output_payload: { latest_stage: stage, result },
         updated_at: new Date().toISOString(),
       }).eq("id", jobId).eq("owner_id", authData.user.id);
+      if (jobUpdateError) throw new Error("The AI result was saved, but the production job could not be updated: " + jobUpdateError.message);
     }
 
     return reply({ ok: true, action, result });
