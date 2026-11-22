@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Activity, ArrowRight, Award, Bell, BookOpen, Braces, ChevronRight,
-  CircleHelp, Code2, Flame, GraduationCap, Home as HomeIcon, LayoutDashboard,
-  Medal, Menu, Play, Rocket, Search, Settings, ShieldCheck, Sparkles,
+  Code2, Flame, GraduationCap, Home as HomeIcon,
+  Medal, Menu, Play, Rocket, Search, ShieldCheck, Sparkles,
   Target, Trophy, Users, X, Zap
 } from "lucide-react";
 
@@ -74,7 +74,7 @@ export default function Home() {
             <div className="ss-hero-copy">
               <span className="ss-welcome-pill">WELCOME BACK</span>
               <h1>Cletus Ogiji<span className="ss-verified">✓</span></h1>
-              <p>Keep coding. Keep growing. You're on the right path to becoming a top developer.</p>
+              <p>Keep coding. Keep growing. You&apos;re on the right path to becoming a top developer.</p>
               <Link href="/academy" className="ss-primary"><Play size={15} fill="currentColor"/> Continue Learning <ArrowRight size={17}/></Link>
               <div className="ss-hero-quote">“Dream it. Code it. Build it.” <small>— Syntax Studio</small></div>
             </div>
@@ -107,7 +107,7 @@ export default function Home() {
           <footer className="ss-footer"><div className="ss-footer-mark"><Code2/></div><div><b>Learn. Practise. Build. Prove. Advance.</b><small>Build real skills, one line at a time.</small></div><Link href="/academy">Explore the Academy <ArrowRight size={16}/></Link></footer>
         </div>
       </section>
-      {notice && <div className="ss-notice" role="status"><Sparkles/><div><b>You're viewing the design preview.</b><small>This area will become interactive as its feature is implemented.</small></div><button onClick={()=>setNotice(false)} aria-label="Dismiss"><X size={15}/></button></div>}
+      {notice && <div className="ss-notice" role="status"><Sparkles/><div><b>You&apos;re viewing the design preview.</b><small>This area will become interactive as its feature is implemented.</small></div><button onClick={()=>setNotice(false)} aria-label="Dismiss"><X size={15}/></button></div>}
     </main>
   );
 }
