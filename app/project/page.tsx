@@ -315,6 +315,29 @@ export default function ProjectWorkspacePage() {
     await load();
   }
 
+  async function approveAudioPlan() {
+    if (!project || !user || !audioPlan) return;
+    setSaving(true); setError(""); setNotice("");
+    const metadata = { ...(project.metadata ?? {}), audio_approved: true, creative_stage: "audio_approved" };
+    const { error: saveError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
+    if (saveError) { setSaving(false); setError(saveError.message); return; }
+    const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
+    if (workflowJob) {
+      const { error: audioError } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: audioPlan, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "audio");
+      const { error: generationError } = await supabase.from("production_steps").update({ status: "ready", input_payload: { instruction: "Route the approved storyboard scenes and audio plan to configured image, video, voice and music providers." }, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "generation");
+      const { error: jobError } = await supabase.from("production_jobs").update({ status: "queued", output_payload: { approved_audio_plan: audioPlan, next_stage: "generation" }, updated_at: new Date().toISOString() }).eq("id", workflowJob.id).eq("owner_id", user.id);
+      if (audioError || generationError || jobError) {
+        setSaving(false);
+        setError("The audio plan was saved, but the visual generation hand-off needs attention: " + (audioError?.message || generationError?.message || jobError?.message));
+        await load();
+        return;
+      }
+    }
+    setSaving(false); setAudioApproved(true);
+    setNotice("Audio plan approved. Production provider routing is now the next stage.");
+    await load();
+  }
+
   async function saveBrief(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!project) return;
