@@ -111,6 +111,16 @@ Deno.serve(async (req: Request) => {
   });
 
   const tasks: JsonRecord[] = [];
+  const canRunDepartment = (category: string) =>
+    departmentReadiness.some(item => item.category === category && item.execution_ready);
+  const addTask = (task: JsonRecord, category: string) => {
+    tasks.push({
+      ...task,
+      status: canRunDepartment(category) ? "ready_for_worker" : "blocked_by_adapter",
+      attempts: 0,
+      max_attempts: 2,
+    });
+  };
   const sceneRows = storyboard.scenes as JsonRecord[];
   for (const scene of sceneRows) {
     const sceneNumber = Number(scene.scene_number);
@@ -126,7 +136,7 @@ Deno.serve(async (req: Request) => {
       if (!Number.isInteger(shotNumber) || shotNumber < 1 || typeof shot.image_prompt !== "string" || !shot.image_prompt.trim()) {
         return reply({ error: "Every storyboard shot needs a valid shot number and image prompt.", code: "STORYBOARD_SHOT_INVALID", scene_number: sceneNumber }, 409);
       }
-      tasks.push({
+      addTask({
         task_key: `${project.id}:scene-${sceneNumber}:shot-${shotNumber}:image`,
         task_type: "image_reference",
         department: "image",
@@ -134,23 +144,61 @@ Deno.serve(async (req: Request) => {
         shot_number: shotNumber,
         title: `Scene ${sceneNumber} · Shot ${shotNumber} visual reference`,
         prompt: shot.image_prompt,
-        status: "blocked_by_adapter",
-        attempts: 0,
-        max_attempts: 2,
-      });
-      tasks.push({
+      }, "image");
+      addTask({
         task_key: `${project.id}:scene-${sceneNumber}:shot-${shotNumber}:video`,
         task_type: "video_clip",
         department: "video",
         scene_number: sceneNumber,
         shot_number: shotNumber,
         title: `Scene ${sceneNumber} · Shot ${shotNumber} motion clip`,
-        prompt: [shot.visual_description, shot.framing, shot.camera_movement].filter(value => typeof value === "string").join("\n"),
-        status: "blocked_by_adapter",
-        attempts: 0,
-        max_attempts: 2,
-      });
+        prompt: [shot.visual_description, shot.framing, shot.camera_movement]
+          .filter(value => typeof value === "string").join("\n"),
+      }, "video");
     }
+  }
+
+  const addCueTasks = (key: string, category: string, taskType: string) => {
+    const cues = Array.isArray(audioPlan[key]) ? audioPlan[key] as JsonRecord[] : [];
+    cues.forEach((cue, index) => {
+      const sceneNumber = Number(cue.scene_number ?? (Array.isArray(cue.scene_numbers) ? cue.scene_numbers[0] : 0));
+      const label = String(cue.cue_id ?? cue.character ?? cue.event ?? cue.emotional_purpose ?? key + "-" + (index + 1));
+      const prompt = [
+        cue.exact_line_or_reference, cue.script, cue.performance_direction,
+        cue.sound_description, cue.mood, cue.tempo, cue.instrumentation,
+        cue.mix_notes, cue.timing, cue.entry_and_exit, cue.environment, cue.sound_layers,
+      ].filter(value => typeof value === "string" && value.trim()).join("\n");
+      addTask({
+        task_key: `${project.id}:${taskType}:${label.replaceAll(" ", "-").toLowerCase()}`,
+        task_type: taskType,
+        department: category,
+        scene_number: Number.isFinite(sceneNumber) && sceneNumber > 0 ? sceneNumber : null,
+        title: label,
+        prompt,
+        cue,
+      }, category);
+    });
+  };
+
+  if (voiceRequired) {
+    if (audioPlan.voiceover_required === true && audioPlan.narration && typeof audioPlan.narration === "object") {
+      const narration = audioPlan.narration as JsonRecord;
+      addTask({
+        task_key: `${project.id}:voiceover:narration`,
+        task_type: "voiceover",
+        department: "voice",
+        scene_number: null,
+        title: "Narration performance",
+        prompt: String(narration.script ?? ""),
+        cue: narration,
+      }, "voice");
+    }
+    addCueTasks("dialogue_cues", "voice", "dialogue_performance");
+  }
+  if (musicRequired) {
+    addCueTasks("music_cues", "music", "original_music");
+    addCueTasks("sound_effects", "music", "sound_effect");
+    addCueTasks("ambience", "music", "ambience");
   }
 
   const blockers = departmentReadiness.filter(item => !item.execution_ready);
@@ -168,7 +216,8 @@ Deno.serve(async (req: Request) => {
       shots: tasks.filter(task => task.task_type === "image_reference").length,
       planned_tasks: tasks.length,
       blocked_departments: blockers.length,
-      tasks_blocked: tasks.length,
+      tasks_blocked: tasks.filter(task => task.status === "blocked_by_adapter").length,
+      tasks_ready_for_worker: tasks.filter(task => task.status === "ready_for_worker").length,
     },
     departments: departmentReadiness,
     tasks,
