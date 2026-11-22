@@ -35,6 +35,12 @@ type Account = {
   connection_method: string;
   status: string;
   last_verified_at: string | null;
+  last_tested_at: string | null;
+  api_base_url: string | null;
+  model_id: string | null;
+  adapter_key: string | null;
+  verified_models: string[] | null;
+  connection_error: string | null;
   notes: string | null;
 };
 
@@ -89,7 +95,7 @@ Deno.serve(async (req: Request) => {
       .select("id,name,category,website_url,connection_type,connection_status,is_enabled,is_default,capabilities,notes")
       .eq("owner_id", ownerId).eq("is_enabled", true),
     supabase.from("provider_accounts")
-      .select("id,provider_id,label,external_account_label,connection_method,status,last_verified_at,notes")
+      .select("id,provider_id,label,external_account_label,connection_method,status,last_verified_at,last_tested_at,api_base_url,model_id,adapter_key,verified_models,connection_error,notes")
       .eq("owner_id", ownerId),
   ]);
   if (providerError) return reply({ error: "Could not read your provider registry: " + providerError.message }, 500);
@@ -119,7 +125,7 @@ Deno.serve(async (req: Request) => {
       const providerAccounts = accounts.filter(account => account.provider_id === provider.id);
       const connectedAccounts = providerAccounts.filter(account =>
         account.status === "connected" && provider.connection_status === "connected"
-      );
+      ).sort((a, b) => Date.parse(b.last_verified_at ?? "") - Date.parse(a.last_verified_at ?? ""));
       const preferredAccount = connectedAccounts[0] ?? providerAccounts[0] ?? null;
       return { provider, providerAccounts, connectedAccounts, preferredAccount };
     }).sort((a, b) => {
@@ -158,6 +164,12 @@ Deno.serve(async (req: Request) => {
         account_status: account?.status ?? "no_account_profile",
         account_connection_method: account?.connection_method ?? null,
         last_verified_at: account?.last_verified_at ?? null,
+        last_tested_at: account?.last_tested_at ?? null,
+        adapter_key: account?.adapter_key ?? null,
+        configured_model: account?.model_id ?? null,
+        api_base_url: account?.api_base_url ?? null,
+        verified_models: account?.verified_models ?? [],
+        connection_error: account?.connection_error ?? null,
         provider_notes: provider.notes,
         capabilities: provider.capabilities ?? {},
       },
@@ -168,7 +180,7 @@ Deno.serve(async (req: Request) => {
       })),
       execution_ready: false,
       next_action: connected
-        ? "A provider and account are marked connected, but a tested execution adapter is not installed for this provider yet."
+        ? "The provider API credential has been verified and stored. Its production task worker adapter is not installed yet, so this route is not execution-ready."
         : "Complete and verify this provider's official connection before it can be considered for automated execution.",
     };
   });
