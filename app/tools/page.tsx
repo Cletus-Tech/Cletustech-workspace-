@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/client";
 type Account = {
   id: string; provider_id: string; label: string; external_account_label: string | null;
   connection_method: string; status: string; secret_reference: string | null; notes: string | null;
+  api_base_url: string | null; model_id: string | null; adapter_key: string | null;
+  verified_models: string[]; last_verified_at: string | null; connection_error: string | null;
 };
 type Provider = {
   id: string;
@@ -20,6 +22,7 @@ type Provider = {
   is_enabled: boolean;
   is_default: boolean;
   notes: string | null;
+  capabilities?: Record<string, unknown> | null;
 };
 
 const categories = [
@@ -43,6 +46,10 @@ export default function ToolsPage() {
   const [accountMethod, setAccountMethod] = useState("manual");
   const [accountNotes, setAccountNotes] = useState("");
   const [secretReference, setSecretReference] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [accountModel, setAccountModel] = useState("");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [connectionTesting, setConnectionTesting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
@@ -59,13 +66,43 @@ export default function ToolsPage() {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) { router.replace("/login"); return; }
     setUser(currentUser);
-    const { data, error: queryError } = await supabase.from("ai_providers").select("*").order("created_at", { ascending: false });
+    let { data, error: queryError } = await supabase.from("ai_providers").select("*").order("created_at", { ascending: false });
     if (queryError) setError(queryError.message);
     else {
-      setProviders(data ?? []);
-      const { data: accountData, error: accountError } = await supabase.from("provider_accounts").select("*").order("created_at", { ascending: false });
-      if (accountError) setError(accountError.message);
-      else setAccounts((accountData ?? []) as Account[]);
+      // Give a new workspace a useful, honest starter catalogue. These are profiles,
+      // not claimed connections; credentials are still supplied and tested by the owner.
+      if ((data ?? []).length === 0) {
+        const starter = [
+          ["OpenAI", "https://openai.com", "https://api.openai.com/v1"],
+          ["OpenRouter", "https://openrouter.ai", "https://openrouter.ai/api/v1"],
+          ["Groq", "https://groq.com", "https://api.groq.com/openai/v1"],
+          ["Google Gemini", "https://ai.google.dev", "https://generativelanguage.googleapis.com/v1beta/openai"],
+          ["DeepSeek", "https://www.deepseek.com", "https://api.deepseek.com/v1"],
+          ["Together AI", "https://www.together.ai", "https://api.together.xyz/v1"],
+          ["Mistral AI", "https://mistral.ai", "https://api.mistral.ai/v1"],
+          ["Cerebras", "https://www.cerebras.ai", "https://api.cerebras.ai/v1"],
+          ["Fireworks AI", "https://fireworks.ai", "https://api.fireworks.ai/inference/v1"],
+        ];
+        await supabase.from("ai_providers").insert(starter.map(([providerName, websiteUrl, baseUrl]) => ({
+          owner_id: currentUser.id,
+          name: providerName,
+          category: "script",
+          website_url: websiteUrl,
+          connection_type: "official_api",
+          capabilities: { adapter_key: "openai_compatible_chat", api_base_url: baseUrl, supports: ["chat_completions", "model_discovery"] },
+          notes: "Starter language-model provider profile. API key and model verification are required before use.",
+        })));
+        const refreshed = await supabase.from("ai_providers").select("*").order("created_at", { ascending: false });
+        data = refreshed.data;
+        queryError = refreshed.error;
+      }
+      if (queryError) setError(queryError.message);
+      else {
+        setProviders(data ?? []);
+        const { data: accountData, error: accountError } = await supabase.from("provider_accounts").select("*").order("created_at", { ascending: false });
+        if (accountError) setError(accountError.message);
+        else setAccounts((accountData ?? []) as Account[]);
+      }
     }
     setLoading(false);
   }, [router, supabase]);
@@ -95,7 +132,7 @@ export default function ToolsPage() {
     };
     const result = editing
       ? await supabase.from("ai_providers").update(payload).eq("id", editing.id)
-      : await supabase.from("ai_providers").insert({ ...payload, owner_id: user.id, connection_status: "not_connected" });
+      : await supabase.from("ai_providers").insert({ ...payload, owner_id: user.id });
     setBusy(false);
     if (result.error) { setError(result.error.message); return; }
     setShowForm(false); setNotice(editing ? "Provider details updated." : "AI provider added to your registry.");
@@ -103,7 +140,7 @@ export default function ToolsPage() {
   }
 
   async function toggle(provider: Provider) {
-    const { error: updateError } = await supabase.from("ai_providers").update({ is_enabled: !provider.is_enabled, connection_status: provider.is_enabled ? "disabled" : "not_connected", updated_at: new Date().toISOString() }).eq("id", provider.id);
+    const { error: updateError } = await supabase.from("ai_providers").update({ is_enabled: !provider.is_enabled, updated_at: new Date().toISOString() }).eq("id", provider.id);
     if (updateError) setError(updateError.message);
     else await load();
   }
@@ -119,7 +156,12 @@ export default function ToolsPage() {
     setAccountProvider(provider); setEditingAccount(account ?? null);
     setAccountLabel(account?.label ?? ""); setExternalLabel(account?.external_account_label ?? "");
     setAccountMethod(account?.connection_method ?? "manual"); setAccountNotes(account?.notes ?? "");
-    setSecretReference(account?.secret_reference ?? ""); setError(""); setShowAccountForm(true);
+    setSecretReference("");
+    setApiKey("");
+    const savedModels = Array.isArray(account?.verified_models) ? account.verified_models : [];
+    setAvailableModels(savedModels);
+    setAccountModel(account?.model_id ?? savedModels[0] ?? "");
+    setError(""); setShowAccountForm(true);
   }
 
   async function saveAccount(event: React.FormEvent<HTMLFormElement>) {
@@ -129,14 +171,71 @@ export default function ToolsPage() {
     const payload = {
       label: accountLabel.trim(), external_account_label: externalLabel.trim() || null,
       connection_method: accountMethod, notes: accountNotes.trim() || null,
-      secret_reference: secretReference.trim() || null, updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString()
     };
     const result = editingAccount
       ? await supabase.from("provider_accounts").update(payload).eq("id", editingAccount.id).eq("owner_id", user.id)
-      : await supabase.from("provider_accounts").insert({ ...payload, owner_id: user.id, provider_id: accountProvider.id, status: "not_connected" });
+      : await supabase.from("provider_accounts").insert({ ...payload, owner_id: user.id, provider_id: accountProvider.id });
     setBusy(false);
     if (result.error) { setError(result.error.message); return; }
     setShowAccountForm(false); setNotice(editingAccount ? "Provider account details updated." : "Account profile added. It is not connected yet.");
+    await load();
+  }
+
+  async function discoverProviderModels() {
+    if (!accountProvider || !editingAccount || !apiKey.trim()) {
+      setError("Save the account profile first, then enter its API key to discover available models.");
+      return;
+    }
+    setConnectionTesting(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("provider-control", {
+      body: { action: "discover_models", provider_id: accountProvider.id, account_id: editingAccount.id, api_key: apiKey.trim() }
+    });
+    setConnectionTesting(false);
+    if (invokeError || data?.error) { setError(data?.error || invokeError?.message || "Could not verify this provider."); return; }
+    setAvailableModels(data.models ?? []);
+    setAccountModel((current) => current && (data.models ?? []).includes(current) ? current : (data.models?.[0] ?? ""));
+    setNotice("API key verified. Choose a model, then connect and save the credential securely.");
+  }
+
+  async function connectProviderAccount() {
+    if (!accountProvider || !editingAccount || !apiKey.trim() || !accountModel) {
+      setError("Enter the API key, verify it, and choose one of the returned models.");
+      return;
+    }
+    setConnectionTesting(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("provider-control", {
+      body: { action: "connect", provider_id: accountProvider.id, account_id: editingAccount.id, api_key: apiKey.trim(), model_id: accountModel }
+    });
+    setConnectionTesting(false);
+    if (invokeError || data?.error) { setError(data?.error || invokeError?.message || "Provider connection failed."); return; }
+    setApiKey("");
+    setNotice("Provider verified and credential saved in encrypted storage. You can now make it your default language model.");
+    await load();
+  }
+
+  async function setDefaultProvider(provider: Provider) {
+    const account = accounts.find(item => item.provider_id === provider.id && item.status === "connected");
+    if (!account) { setError("Connect and verify an account before setting this provider as default."); return; }
+    setBusy(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("provider-control", {
+      body: { action: "set_default", provider_id: provider.id, account_id: account.id }
+    });
+    setBusy(false);
+    if (invokeError || data?.error) { setError(data?.error || invokeError?.message || "Could not set the default provider."); return; }
+    setNotice(provider.name + " is now the default language-model provider for your Creative Director.");
+    await load();
+  }
+
+  async function disconnectProviderAccount(provider: Provider, account: Account) {
+    if (!window.confirm("Disconnect this provider account? Its saved API key will be deleted from secure storage.")) return;
+    setBusy(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("provider-control", {
+      body: { action: "disconnect", provider_id: provider.id, account_id: account.id }
+    });
+    setBusy(false);
+    if (invokeError || data?.error) { setError(data?.error || invokeError?.message || "Could not disconnect this account."); return; }
+    setNotice("Provider account disconnected and its encrypted credential deleted.");
     await load();
   }
 
@@ -163,8 +262,9 @@ export default function ToolsPage() {
         <div className="provider-explainer"><div className="provider-explainer-icon">✳</div><div><strong>A provider record is not a live connection.</strong><p>Adding a tool saves its details to your private registry. API access, OAuth or supported browser control must be configured and verified separately before the workspace can operate it.</p></div></div>
         <div className="provider-summary"><div><span>REGISTERED PROVIDERS</span><strong>{providers.length}</strong></div><div><span>ENABLED</span><strong>{providers.filter(p => p.is_enabled).length}</strong></div><div><span>VERIFIED CONNECTIONS</span><strong>{providers.filter(p => p.connection_status === "connected").length}</strong></div></div>
         <div className="provider-section-heading"><div><h2>Your provider registry</h2><p>Manage preferred AI services without locking your workflow to one vendor.</p></div></div>
+        <div className="provider-explainer provider-setup-guide"><div className="provider-explainer-icon">01</div><div><strong>Connect your language model in three steps</strong><p>Open an account profile, verify its API key, choose a model returned by the provider, then set the verified provider as default. The key is sent directly to the secure backend and stored encrypted — it is never written to this browser database.</p></div></div>
         {providers.length === 0 ? <div className="panel provider-empty"><div className="empty-icon">✳</div><h3>Your provider registry is empty</h3><p>Add services you already use. You can register video, image, writing, voice, music and editing tools here.</p><button className="secondary-button" onClick={openCreate}>＋ Register your first AI tool</button></div> :
-          <div className="provider-grid">{providers.map(provider => <article className="provider-card" key={provider.id}><div className="provider-card-top"><span className={"provider-category-icon " + provider.category}>{(categoryNames[provider.category] || "AI").slice(0,1)}</span><span className={provider.is_enabled ? "provider-enabled" : "provider-disabled"}>{provider.is_enabled ? "Enabled" : "Disabled"}</span></div><h3>{provider.name}</h3><p className="provider-category">{categoryNames[provider.category] || provider.category}</p>{provider.website_url && <a className="provider-url" href={provider.website_url} target="_blank" rel="noreferrer">{provider.website_url.replace(/^https?:\/\//,"").replace(/\/$/,"")} ↗</a>}<div className="provider-connection"><span className="connection-indicator" />{provider.connection_status.replaceAll("_"," ")} · {provider.connection_type.replaceAll("_"," ")}</div>{provider.notes && <p className="provider-notes">{provider.notes}</p>}<div className="provider-account-list"><div className="provider-account-heading"><strong>Account profiles</strong><button onClick={() => openAccountForm(provider)}>＋ Add account</button></div>{accounts.filter(account => account.provider_id === provider.id).length === 0 ? <p className="provider-no-accounts">No account profiles saved yet.</p> : accounts.filter(account => account.provider_id === provider.id).map(account => <div className="provider-account-row" key={account.id}><span className="account-avatar">{account.label.slice(0,1).toUpperCase()}</span><span className="account-copy"><strong>{account.label}</strong><small>{account.external_account_label || "Account label not specified"} · {account.connection_method.replaceAll("_"," ")}</small></span><span className="account-status">{account.status.replaceAll("_"," ")}</span><button className="text-action" onClick={() => openAccountForm(provider, account)}>Edit</button><button className="text-action danger-action" onClick={() => void removeAccount(account)}>Remove</button></div>)}</div><div className="provider-actions"><button onClick={() => openEdit(provider)}>Edit provider</button><button onClick={() => void toggle(provider)}>{provider.is_enabled ? "Disable" : "Enable"}</button><button className="danger-action" onClick={() => void remove(provider)}>Remove</button></div></article>)}</div>}
+          <div className="provider-grid">{providers.map(provider => <article className="provider-card" key={provider.id}><div className="provider-card-top"><span className={"provider-category-icon " + provider.category}>{(categoryNames[provider.category] || "AI").slice(0,1)}</span><span className={provider.is_enabled ? "provider-enabled" : "provider-disabled"}>{provider.is_enabled ? "Enabled" : "Disabled"}</span></div><h3>{provider.name}</h3><p className="provider-category">{categoryNames[provider.category] || provider.category}</p>{provider.website_url && <a className="provider-url" href={provider.website_url} target="_blank" rel="noreferrer">{provider.website_url.replace(/^https?:\/\//,"").replace(/\/$/,"")} ↗</a>}<div className="provider-connection"><span className="connection-indicator" />{provider.connection_status.replaceAll("_"," ")} · {provider.connection_type.replaceAll("_"," ")}{provider.is_default ? " · default" : ""}</div>{provider.notes && <p className="provider-notes">{provider.notes}</p>}<div className="provider-account-list"><div className="provider-account-heading"><strong>Account profiles</strong><button onClick={() => openAccountForm(provider)}>＋ Add account</button></div>{accounts.filter(account => account.provider_id === provider.id).length === 0 ? <p className="provider-no-accounts">No account profiles saved yet.</p> : accounts.filter(account => account.provider_id === provider.id).map(account => <div className="provider-account-row" key={account.id}><span className="account-avatar">{account.label.slice(0,1).toUpperCase()}</span><span className="account-copy"><strong>{account.label}</strong><small>{account.external_account_label || "Account label not specified"} · {account.connection_method.replaceAll("_"," ")}{account.model_id ? " · " + account.model_id : ""}</small></span><span className="account-status">{account.status.replaceAll("_"," ")}</span><button className="text-action" onClick={() => openAccountForm(provider, account)}>{account.status === "connected" ? "Manage" : "Connect"}</button>{account.status === "connected" && <button className="text-action danger-action" onClick={() => void disconnectProviderAccount(provider, account)}>Disconnect</button>}<button className="text-action danger-action" onClick={() => void removeAccount(account)}>Remove</button></div>)}</div><div className="provider-actions"><button onClick={() => openEdit(provider)}>Edit provider</button>{provider.category === "script" && <button onClick={() => void setDefaultProvider(provider)} disabled={!accounts.some(account => account.provider_id === provider.id && account.status === "connected")}>{provider.is_default ? "Default provider" : "Set as default"}</button>}<button onClick={() => void toggle(provider)}>{provider.is_enabled ? "Disable" : "Enable"}</button><button className="danger-action" onClick={() => void remove(provider)}>Remove</button></div></article>)}</div>}
       </div>
     </section>
     {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowForm(false); }}><form className="project-modal" onSubmit={save}><div className="modal-top"><div><p className="eyebrow">PROVIDER REGISTRY</p><h2>{editing ? "Edit provider" : "Add AI provider"}</h2></div><button type="button" className="close-button" onClick={() => setShowForm(false)} aria-label="Close">×</button></div>
@@ -180,10 +280,25 @@ export default function ToolsPage() {
       <label htmlFor="account-label">Workspace label</label><input id="account-label" value={accountLabel} onChange={e => setAccountLabel(e.target.value)} placeholder="e.g. Main production account" maxLength={100} required />
       <label htmlFor="external-account-label">Provider-side account label (optional)</label><input id="external-account-label" value={externalLabel} onChange={e => setExternalLabel(e.target.value)} placeholder="e.g. studio@example.com or Team workspace" maxLength={160} />
       <label htmlFor="account-method">Connection method</label><select id="account-method" value={accountMethod} onChange={e => setAccountMethod(e.target.value)}><option value="manual">Manual handoff</option><option value="oauth">Official OAuth</option><option value="api_key_reference">API key reference</option><option value="browser_session">Supported browser session</option></select>
-      <label htmlFor="secret-reference">Secret manager reference (optional)</label><input id="secret-reference" value={secretReference} onChange={e => setSecretReference(e.target.value)} placeholder="Reference name only — never paste a key" maxLength={180} />
+      {["script","general"].includes(accountProvider.category) && <div className="provider-credential-panel">
+        <div className="provider-credential-heading"><strong>Secure API connection</strong><span className={editingAccount.status === "connected" ? "provider-enabled" : "provider-disabled"}>{editingAccount.status.replaceAll("_"," ")}</span></div>
+        <p>Supported language-model providers use a verified API endpoint. Your key is never saved in the account profile.</p>
+        {editingAccount.api_base_url && <small className="provider-endpoint">Endpoint: {editingAccount.api_base_url}</small>}
+        <label htmlFor="provider-api-key">API key</label>
+        <input id="provider-api-key" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={editingAccount.status === "connected" ? "Enter a new key only to rotate or re-test" : "Paste the provider API key"} autoComplete="new-password" />
+        <button type="button" className="secondary-button" disabled={connectionTesting || !apiKey.trim()} onClick={() => void discoverProviderModels()}>{connectionTesting ? "Checking provider…" : "Verify key & load models"}</button>
+        {availableModels.length > 0 && <>
+          <label htmlFor="provider-model">Production language model</label>
+          <select id="provider-model" value={accountModel} onChange={e => setAccountModel(e.target.value)}>
+            {availableModels.map(model => <option value={model} key={model}>{model}</option>)}
+          </select>
+          <button type="button" className="primary-button" disabled={connectionTesting || !apiKey.trim() || !accountModel} onClick={() => void connectProviderAccount()}>{connectionTesting ? "Saving secure connection…" : "Connect & save credential"}</button>
+        </>}
+        {editingAccount.status === "connected" && <small className="provider-safe-note">Credential stored encrypted. Leave the API key blank to keep the current connection.</small>}
+      </div>}
       <label htmlFor="account-notes">Notes</label><textarea id="account-notes" className="provider-notes-input" value={accountNotes} onChange={e => setAccountNotes(e.target.value)} placeholder="Purpose, plan notes or account-specific capabilities…" rows={3} />
-      <div className="modal-note">This stores an account label and connection metadata only. It does not sign in or verify the provider. Account status remains “not connected” until a real supported connection test is implemented. Never store passwords, session cookies or raw API keys here.</div>
-      <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowAccountForm(false)}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Saving…" : editingAccount ? "Save account" : "Add account profile"}</button></div>
+      <div className="modal-note">Save this account profile first. Then verify the API key and select a model in the secure connection panel. Never paste provider passwords, session cookies or recovery codes.</div>
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowAccountForm(false)}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Saving…" : editingAccount ? "Save account details" : "Add account profile"}</button></div>
     </form></div>}
   </main>;
 }
