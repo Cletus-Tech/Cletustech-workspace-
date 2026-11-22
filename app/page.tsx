@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Activity, ArrowRight, Award, Bell, BookOpen, Braces, ChevronRight,
-  CircleHelp, Code2, Flame, GraduationCap, Home, LayoutDashboard,
+  CircleHelp, Code2, Flame, GraduationCap, Home as HomeIcon, LayoutDashboard,
   Medal, Menu, Play, Rocket, Search, Settings, ShieldCheck, Sparkles,
   Target, Trophy, Users, X, Zap
 } from "lucide-react";
 
 const navigation = [
-  { label: "Dashboard", sub: "Empire Hall", icon: Home, href: "/" },
+  { label: "Dashboard", sub: "Empire Hall", icon: HomeIcon, href: "/" },
   { label: "Academy", sub: "Courses & paths", icon: GraduationCap, href: "/academy" },
   { label: "Code Studio", sub: "Practice live", icon: Code2 },
   { label: "Challenge Arena", sub: "Daily challenges", icon: Target },
