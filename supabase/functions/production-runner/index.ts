@@ -203,8 +203,12 @@ Deno.serve(async (req: Request) => {
   }
 
   const blockers = departmentReadiness.filter(item => !item.execution_ready);
+  const manifestId = crypto.randomUUID();
+  for (const task of tasks) task.task_key = `${manifestId}:${String(task.task_key)}`;
+
   const manifest = {
     version: 1,
+    manifest_id: manifestId,
     prepared_at: new Date().toISOString(),
     project_name: project.name,
     mode: "execution_manifest_only",
@@ -234,6 +238,33 @@ Deno.serve(async (req: Request) => {
   if (jobsError) return reply({ error: "Could not locate the production job: " + jobsError.message }, 500);
   const jobId = jobs?.[0]?.id;
   if (!jobId) return reply({ error: "This project has no idea-to-video production job." }, 409);
+
+  const taskRows = tasks.map(task => ({
+    manifest_id: manifestId,
+    owner_id: ownerId,
+    project_id: project.id,
+    job_id: jobId,
+    task_key: String(task.task_key),
+    task_type: String(task.task_type),
+    department: String(task.department),
+    scene_number: typeof task.scene_number === "number" ? task.scene_number : null,
+    shot_number: typeof task.shot_number === "number" ? task.shot_number : null,
+    title: String(task.title ?? "Production task"),
+    prompt: String(task.prompt ?? ""),
+    input_payload: task,
+    status: String(task.status),
+    attempts: 0,
+    max_attempts: 2,
+  }));
+  for (let offset = 0; offset < taskRows.length; offset += 100) {
+    const batch = taskRows.slice(offset, offset + 100);
+    const { error: taskInsertError } = await supabase.from("production_tasks").insert(batch);
+    if (taskInsertError) {
+      await supabase.from("production_tasks").delete()
+        .eq("manifest_id", manifestId).eq("project_id", project.id).eq("owner_id", ownerId);
+      return reply({ error: "The manifest was analysed, but its durable task records could not be saved: " + taskInsertError.message }, 500);
+    }
+  }
 
   const nextMetadata = { ...metadata, generation_manifest: manifest, generation_manifest_status: manifest.manifest_status };
   const { error: metadataError } = await supabase.from("projects").update({
