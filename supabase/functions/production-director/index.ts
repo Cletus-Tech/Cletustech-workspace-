@@ -213,6 +213,22 @@ Deno.serve(async (req: Request) => {
   const directorOrder = (audioStep?.step_order ?? 6) + 1;
 
   if (!directorStep) {
+    // production_steps has UNIQUE(job_id, step_order). Move later stages out of the way
+    // before inserting the new stage, then compact them into their final positions.
+    const maxOrder = currentSteps.reduce((max, step) => Math.max(max, step.step_order), 0);
+    if (generationStep) {
+      const { error } = await supabase.from("production_steps").update({
+        step_order: maxOrder + 1, status: "pending", updated_at: new Date().toISOString(),
+      }).eq("id", generationStep.id).eq("owner_id", ownerId);
+      if (error) return reply({ error: "Could not prepare the generation stage for routing: " + error.message }, 500);
+    }
+    if (assemblyStep) {
+      const { error } = await supabase.from("production_steps").update({
+        step_order: maxOrder + 2, status: "pending", updated_at: new Date().toISOString(),
+      }).eq("id", assemblyStep.id).eq("owner_id", ownerId);
+      if (error) return reply({ error: "Could not prepare the assembly stage for routing: " + error.message }, 500);
+    }
+
     const { data: inserted, error: insertError } = await supabase.from("production_steps").insert({
       owner_id: ownerId, job_id: jobId, project_id: projectId,
       step_order: directorOrder, stage: "production_director", title: "Production Director · Provider routing",
@@ -221,25 +237,33 @@ Deno.serve(async (req: Request) => {
     }).select("id").single();
     if (insertError || !inserted) return reply({ error: "The routing assessment was built but its workflow stage could not be saved: " + (insertError?.message ?? "Unknown database error.") }, 500);
     directorStep = { id: inserted.id, stage: "production_director", step_order: directorOrder };
+
+    if (generationStep) {
+      const { error } = await supabase.from("production_steps").update({
+        step_order: directorOrder + 1, updated_at: new Date().toISOString(),
+      }).eq("id", generationStep.id).eq("owner_id", ownerId);
+      if (error) return reply({ error: "The routing stage was inserted, but generation ordering could not be finalised: " + error.message }, 500);
+    }
+    if (assemblyStep) {
+      const { error } = await supabase.from("production_steps").update({
+        step_order: directorOrder + 2, updated_at: new Date().toISOString(),
+      }).eq("id", assemblyStep.id).eq("owner_id", ownerId);
+      if (error) return reply({ error: "The routing stage was inserted, but assembly ordering could not be finalised: " + error.message }, 500);
+    }
   } else {
     const { error: updateError } = await supabase.from("production_steps").update({
-      step_order: directorOrder, title: "Production Director · Provider routing",
+      title: "Production Director · Provider routing",
       status: "waiting_for_approval", output_payload: routePlan, error_message: null, updated_at: new Date().toISOString(),
     }).eq("id", directorStep.id).eq("owner_id", ownerId);
     if (updateError) return reply({ error: "Could not save the provider routing assessment: " + updateError.message }, 500);
-  }
-
-  if (generationStep) {
-    const { error } = await supabase.from("production_steps").update({
-      step_order: directorOrder + 1, status: "pending", updated_at: new Date().toISOString(),
-    }).eq("id", generationStep.id).eq("owner_id", ownerId);
-    if (error) return reply({ error: "The routing assessment is saved, but the generation stage order could not be updated: " + error.message }, 500);
-  }
-  if (assemblyStep) {
-    const { error } = await supabase.from("production_steps").update({
-      step_order: directorOrder + 2, status: "pending", updated_at: new Date().toISOString(),
-    }).eq("id", assemblyStep.id).eq("owner_id", ownerId);
-    if (error) return reply({ error: "The routing assessment is saved, but the assembly stage order could not be updated: " + error.message }, 500);
+    if (generationStep) {
+      const { error } = await supabase.from("production_steps").update({ status: "pending", updated_at: new Date().toISOString() }).eq("id", generationStep.id).eq("owner_id", ownerId);
+      if (error) return reply({ error: "Could not reset the generation stage: " + error.message }, 500);
+    }
+    if (assemblyStep) {
+      const { error } = await supabase.from("production_steps").update({ status: "pending", updated_at: new Date().toISOString() }).eq("id", assemblyStep.id).eq("owner_id", ownerId);
+      if (error) return reply({ error: "Could not reset the assembly stage: " + error.message }, 500);
+    }
   }
 
   const nextMetadata = { ...metadata, production_route: routePlan, production_route_approved: false, creative_stage: "provider_routing_ready" };
