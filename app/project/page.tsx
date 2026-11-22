@@ -248,6 +248,67 @@ export default function ProjectWorkspacePage() {
     await load();
   }
 
+  async function approveStoryboard() {
+    if (!project || !user || !storyboard) return;
+    setSaving(true); setError(""); setNotice("");
+    const metadata = { ...(project.metadata ?? {}), storyboard_approved: true, creative_stage: "storyboard_approved" };
+    const { error: saveError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
+    if (saveError) { setSaving(false); setError(saveError.message); return; }
+    const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
+    if (workflowJob) {
+      const { error: storyboardError } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: storyboard, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "storyboard");
+      const { data: continuityStep, error: lookupError } = await supabase.from("production_steps").select("id").eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "continuity").maybeSingle();
+      let continuityStepError: { message: string } | null = lookupError;
+      if (!lookupError && continuityStep) {
+        const { error } = await supabase.from("production_steps").update({ status: "ready", input_payload: { instruction: "Build the character, location, wardrobe, prop, lighting and camera continuity bible." }, updated_at: new Date().toISOString() }).eq("id", continuityStep.id).eq("owner_id", user.id);
+        continuityStepError = error;
+      } else if (!lookupError) {
+        await supabase.from("production_steps").update({ step_order: 7 }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "audio");
+        await supabase.from("production_steps").update({ step_order: 8 }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "generation");
+        await supabase.from("production_steps").update({ step_order: 9 }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "assembly");
+        const { error } = await supabase.from("production_steps").insert({
+          owner_id: user.id, job_id: workflowJob.id, project_id: project.id, step_order: 6,
+          stage: "continuity", title: "Continuity bible", status: "ready",
+          input_payload: { instruction: "Build the character, location, wardrobe, prop, lighting and camera continuity bible." }
+        });
+        continuityStepError = error;
+      }
+      const { error: jobError } = await supabase.from("production_jobs").update({ status: "queued", output_payload: { approved_storyboard: storyboard, next_stage: "continuity" }, updated_at: new Date().toISOString() }).eq("id", workflowJob.id).eq("owner_id", user.id);
+      if (storyboardError || continuityStepError || jobError) {
+        setSaving(false);
+        setError("The storyboard was saved, but the continuity hand-off needs attention: " + (storyboardError?.message || continuityStepError?.message || jobError?.message));
+        await load();
+        return;
+      }
+    }
+    setSaving(false); setStoryboardApproved(true);
+    setNotice("Storyboard approved. The Continuity Director is now ready.");
+    await load();
+  }
+
+  async function approveContinuity() {
+    if (!project || !user || !continuityBible) return;
+    setSaving(true); setError(""); setNotice("");
+    const metadata = { ...(project.metadata ?? {}), continuity_approved: true, creative_stage: "continuity_approved" };
+    const { error: saveError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
+    if (saveError) { setSaving(false); setError(saveError.message); return; }
+    const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
+    if (workflowJob) {
+      const { error: continuityError } = await supabase.from("production_steps").update({ status: "succeeded", output_payload: continuityBible, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "continuity");
+      const { error: audioError } = await supabase.from("production_steps").update({ status: "ready", input_payload: { instruction: "Prepare voiceover, character dialogue, music and sound cue requirements using the approved continuity bible." }, updated_at: new Date().toISOString() }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "audio");
+      const { error: jobError } = await supabase.from("production_jobs").update({ status: "queued", output_payload: { approved_continuity_bible: continuityBible, next_stage: "audio" }, updated_at: new Date().toISOString() }).eq("id", workflowJob.id).eq("owner_id", user.id);
+      if (continuityError || audioError || jobError) {
+        setSaving(false);
+        setError("The continuity bible was saved, but the audio hand-off needs attention: " + (continuityError?.message || audioError?.message || jobError?.message));
+        await load();
+        return;
+      }
+    }
+    setSaving(false); setContinuityApproved(true);
+    setNotice("Continuity bible approved. The audio planning stage is now ready.");
+    await load();
+  }
+
   async function saveBrief(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!project) return;
