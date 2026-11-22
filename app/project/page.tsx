@@ -84,6 +84,8 @@ export default function ProjectWorkspacePage() {
   const [storyboardApproved, setStoryboardApproved] = useState(false);
   const [continuityBible, setContinuityBible] = useState<Record<string, unknown> | null>(null);
   const [continuityApproved, setContinuityApproved] = useState(false);
+  const [audioPlan, setAudioPlan] = useState<Record<string, unknown> | null>(null);
+  const [audioApproved, setAudioApproved] = useState(false);
   const [selectedConceptId, setSelectedConceptId] = useState("");
 
   const load = useCallback(async () => {
@@ -111,6 +113,8 @@ export default function ProjectWorkspacePage() {
       setStoryboardApproved(Boolean(savedMetadata.storyboard_approved));
       setContinuityBible(savedMetadata.continuity_bible && typeof savedMetadata.continuity_bible === "object" ? savedMetadata.continuity_bible as Record<string, unknown> : null);
       setContinuityApproved(Boolean(savedMetadata.continuity_approved));
+      setAudioPlan(savedMetadata.audio_plan && typeof savedMetadata.audio_plan === "object" ? savedMetadata.audio_plan as Record<string, unknown> : null);
+      setAudioApproved(Boolean(savedMetadata.audio_approved));
       const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
       setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
@@ -154,13 +158,14 @@ export default function ProjectWorkspacePage() {
   const activeJob = jobs.find(job => job.job_type === "idea_to_video") ?? jobs[0] ?? null;
   const activeSteps = useMemo(() => activeJob ? steps.filter(step => step.job_id === activeJob.id) : [], [activeJob, steps]);
 
-  async function runCreativeStage(action: "analyze" | "concepts" | "script" | "refine" | "storyboard" | "continuity") {
+  async function runCreativeStage(action: "analyze" | "concepts" | "script" | "refine" | "storyboard" | "continuity" | "audio") {
     if (!project) return;
     if (action === "concepts" && !projectAnalysis) { setError("Complete project analysis before developing concepts."); return; }
     if (action === "script" && !selectedConceptId) { setError("Choose a concept before writing the screenplay."); return; }
     if (action === "refine" && !scriptDraft) { setError("Create a script draft before refining it."); return; }
     if (action === "storyboard" && !scriptApproved) { setError("Approve the screenplay before creating its storyboard."); return; }
     if (action === "continuity" && (!scriptApproved || !storyboardApproved)) { setError("Approve the storyboard before building continuity references."); return; }
+    if (action === "audio" && (!scriptApproved || !storyboardApproved || !continuityApproved)) { setError("Approve the screenplay, storyboard and continuity bible before preparing audio."); return; }
     if (action === "analyze") setAnalysisBusy(true); else if (action === "concepts") setConceptBusy(true); else setSaving(true);
     setError(""); setNotice("");
     const { data, error: invokeError } = await supabase.functions.invoke("creative-director", { body: { project_id: project.id, action } });
@@ -184,7 +189,8 @@ export default function ProjectWorkspacePage() {
       script: "Your first screenplay draft is ready for review.",
       refine: "The script editor has completed its refinement. Review the revised screenplay.",
       storyboard: "The storyboard is ready. Review the scenes and shot directions before approving it.",
-      continuity: "The continuity bible is ready. Review the identity and visual rules before approving it."
+      continuity: "The continuity bible is ready. Review the identity and visual rules before approving it.",
+      audio: "The Audio Director has prepared the narration, dialogue, music and sound cue plan. Review it before approval."
     } as Record<string, string>)[action]);
     await load();
   }
