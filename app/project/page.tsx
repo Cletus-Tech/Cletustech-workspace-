@@ -695,7 +695,7 @@ export default function ProjectWorkspacePage() {
               {Array.isArray(productionRoute.routes) && (productionRoute.routes as Record<string, unknown>[]).map((route,index)=>{
                 const assigned=route.assigned_provider && typeof route.assigned_provider==="object" ? route.assigned_provider as Record<string,unknown> : null;
                 const status=String(route.route_status ?? "unknown");
-                const statusLabel=status==="provider_not_registered"?"Provider not registered":status==="provider_account_required"?"Account profile required":status==="account_connection_required"?"Connection required":status==="account_marked_connected_adapter_missing"?(assigned?.adapter_key?"Credential verified · adapter pending":"Adapter not integrated"):"Needs review";
+                const statusLabel=status==="provider_not_registered"?"Provider not registered":status==="worker_not_deployed"?"FFmpeg worker not deployed":status==="provider_account_required"?"Account profile required":status==="account_connection_required"?"Connection required":status==="account_marked_connected_adapter_missing"?(assigned?.adapter_key?"Credential verified · adapter pending":"Adapter not integrated"):"Needs review";
                 return <article className="route-department" key={String(route.category ?? index)}>
                   <div className="route-department-icon">{String(route.category ?? "AI").slice(0,2).toUpperCase()}</div>
                   <div className="route-department-main"><div className="route-department-heading"><div><strong>{String(route.title ?? route.category ?? "Department")}</strong><p>{String(route.purpose ?? "")}</p></div><span className={"route-status route-"+status}>{statusLabel}</span></div>
