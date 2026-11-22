@@ -179,3 +179,15 @@ revoke all on function public.sync_provider_after_account_delete() from public,a
 drop trigger if exists provider_account_delete_sync on public.provider_accounts;
 create trigger provider_account_delete_sync after delete on public.provider_accounts
 for each row execute function public.sync_provider_after_account_delete();
+
+-- A provider account must reference a provider owned by the same authenticated user.
+drop policy if exists provider_accounts_owner_all on public.provider_accounts;
+create policy provider_accounts_owner_all on public.provider_accounts for all to authenticated
+using (owner_id = (select auth.uid()))
+with check (
+  owner_id = (select auth.uid())
+  and exists (
+    select 1 from public.ai_providers p
+    where p.id = provider_accounts.provider_id and p.owner_id = (select auth.uid())
+  )
+);
