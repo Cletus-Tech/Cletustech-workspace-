@@ -61,3 +61,9 @@ The database migration also installs the control-plane primitives for a separate
 These RPCs are revoked from `PUBLIC`, `anon`, and `authenticated`, and executable only by `service_role`. Keep the service-role key exclusively in the trusted worker's server-side secret store. Never put it in Next.js browser variables, project metadata, task payloads, or client code.
 
 The worker itself and provider-specific adapters are **not deployed yet**. No task is currently being claimed or executed. The queue's browser-facing insert policy only permits `blocked_by_adapter` rows; an adapter must be implemented and verified by trusted server-side code before tasks can become eligible for claiming.
+
+## Provider routing on task records
+
+Each manifest task now carries a non-secret `provider_route` object copied from the approved Production Director assessment. It includes the provider ID, account ID, provider name, adapter key, configured model ID and API base URL. It never contains the API key or decrypted credential. A trusted worker can use the account ID with the server-only `read_provider_secret` RPC after it has authenticated and claimed the task.
+
+A verified API credential alone does not make a task executable. Until a real worker adapter has been tested for that department, the task remains `blocked_by_adapter`.
