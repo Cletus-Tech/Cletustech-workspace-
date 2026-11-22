@@ -170,7 +170,7 @@ Deno.serve(async (req: Request) => {
         cue.mix_notes, cue.timing, cue.entry_and_exit, cue.environment, cue.sound_layers,
       ].filter(value => typeof value === "string" && value.trim()).join("\n");
       addTask({
-        task_key: `${project.id}:${taskType}:${label.replaceAll(" ", "-").toLowerCase()}`,
+        task_key: `${project.id}:${taskType}:${label.replaceAll(" ", "-").toLowerCase()}:${index + 1}`,
         task_type: taskType,
         department: category,
         scene_number: Number.isFinite(sceneNumber) && sceneNumber > 0 ? sceneNumber : null,
