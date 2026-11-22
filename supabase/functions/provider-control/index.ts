@@ -70,7 +70,7 @@ async function callAdminRpc(url: string, functionName: string, args: Record<stri
 }
 
 async function verifyProviderKey(baseUrl: string, apiKey: string, providerName: string) {
-  if (providerName.trim().toLowerCase() === "openrouter") {
+  if (new URL(baseUrl).hostname === "openrouter.ai") {
     const keyCheck = await fetch(baseUrl + "/key", {
       method: "GET",
       headers: { "Authorization": "Bearer " + apiKey, "Accept": "application/json" },
@@ -211,7 +211,7 @@ async function fetchModels(baseUrl: string, apiKey: string, providerName: string
   const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.models) ? payload.models : [];
   const ids = [...new Set(rows.map((row: Record<string, unknown>) => row?.id ?? row?.name)
     .filter((value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 240)
-    .map((value: string) => providerName.trim().toLowerCase() === "google gemini" ? value.replace(/^models\//, "") : value))];
+    .map((value: string) => new URL(baseUrl).hostname === "generativelanguage.googleapis.com" ? value.replace(/^models\//, "") : value))];
   if (!ids.length) throw new Error("The provider authenticated, but its /models response did not contain compatible model IDs.");
   return ids.slice(0, 100) as string[];
 }
