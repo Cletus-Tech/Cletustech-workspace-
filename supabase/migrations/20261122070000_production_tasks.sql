@@ -73,5 +73,5 @@ create policy "Owners can create their production tasks"
 -- blocked planning records, but cannot claim, complete, retry, or erase work.
 drop policy if exists "Owners can update their production tasks" on public.production_tasks;
 drop policy if exists "Owners can delete their production tasks" on public.production_tasks;
-revoke update, delete on public.production_tasks from authenticated;
+revoke all privileges on public.production_tasks from authenticated;
 grant select, insert on public.production_tasks to authenticated;
