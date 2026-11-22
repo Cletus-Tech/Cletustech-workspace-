@@ -1,48 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  Activity, ArrowDownRight, ArrowRight, Award, BookOpen, Braces, Check,
-  ChevronRight, CircleHelp, Code2, Command, Compass, Flame, Gauge, GraduationCap,
-  LayoutDashboard, LockKeyhole, Menu, Play, Search, Settings2, ShieldCheck,
-  Sparkles, Trophy, X, Zap
+  Activity, ArrowRight, Award, Bell, BookOpen, Braces, ChevronRight,
+  CircleHelp, Code2, Flame, GraduationCap, Home, LayoutDashboard,
+  Medal, Menu, Play, Rocket, Search, Settings, ShieldCheck, Sparkles,
+  Target, Trophy, Users, X, Zap
 } from "lucide-react";
 
-const navItems = [
-  { label: "Overview", icon: LayoutDashboard },
-  { label: "Academy", icon: GraduationCap },
-  { label: "Code Studio", icon: Code2 },
-  { label: "Challenges", icon: Zap },
-  { label: "Examinations", icon: ShieldCheck },
-  { label: "Achievements", icon: Trophy },
+const navigation = [
+  { label: "Dashboard", sub: "Empire Hall", icon: Home, href: "/" },
+  { label: "Academy", sub: "Courses & paths", icon: GraduationCap, href: "/academy" },
+  { label: "Code Studio", sub: "Practice live", icon: Code2 },
+  { label: "Challenge Arena", sub: "Daily challenges", icon: Target },
+  { label: "Examination Centre", sub: "Test & assess", icon: ShieldCheck },
+  { label: "Trophy Gallery", sub: "Achievements", icon: Medal },
+  { label: "Leaderboard", sub: "Rankings", icon: Activity },
+  { label: "Showcase Room", sub: "Projects", icon: Rocket },
 ];
 
-const lessons = [
-  { number: "01", title: "Getting started with Python", detail: "Environment, interpreter and your first program", duration: "18 min", status: "Ready" },
-  { number: "02", title: "Variables and data types", detail: "Store, identify and work with information", duration: "24 min", status: "Locked" },
-  { number: "03", title: "Operators and expressions", detail: "Build logic with Python operators", duration: "28 min", status: "Locked" },
+const courses = [
+  { title: "Python for Beginners", detail: "From zero to hero", level: "BEGINNER", rating: "4.9", students: "12.5k", symbol: "Py", tone: "python" },
+  { title: "Web Development", detail: "Build for the web", level: "INTERMEDIATE", rating: "4.8", students: "8.7k", symbol: "</>", tone: "web" },
+  { title: "Data Structures", detail: "Think in systems", level: "ADVANCED", rating: "4.9", students: "6.3k", symbol: "◇", tone: "data" },
 ];
-
-function BrandMark() {
-  return <div className="brand-mark"><span className="brand-angle">{"<"}</span><span className="brand-slash">/</span><span className="brand-angle">{">"}</span></div>;
-}
 
 export default function Home() {
-  const [active, setActive] = useState("Overview");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [started, setStarted] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [leaderboard, setLeaderboard] = useState("Global");
+  const [notice, setNotice] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user.email ?? null);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUserEmail(session?.user.email ?? null));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -53,91 +48,66 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
-        <div className="brand-lockup">
-          <BrandMark />
-          <div><strong>syntax<span>studio</span></strong><small>THE LEARNING ENGINE</small></div>
-          <button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={18}/></button>
-        </div>
-        <div className="workspace-label">WORKSPACE</div>
-        <nav className="main-nav">
-          {navItems.map(({ label, icon: Icon }) => (
-            label === "Academy" ? <Link key={label} href="/academy" className={`nav-item ${active === label ? "active" : ""}`}><Icon size={18} strokeWidth={1.8}/><span>{label}</span></Link> : <button key={label} className={`nav-item ${active === label ? "active" : ""}`} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={18} strokeWidth={1.8}/><span>{label}</span>{label === "Challenges" && <i className="nav-dot"/>}</button>
-          ))}
+    <main className="ss-app">
+      <aside className={`ss-sidebar ${menuOpen ? "ss-sidebar-open" : ""}`}>
+        <Link href="/" className="ss-brand"><span className="ss-brand-mark">S</span><span>Syntax<strong>Studio</strong></span></Link>
+        <div className="ss-nav-label">LEARNING SPACE</div>
+        <nav className="ss-nav">
+          {navigation.map(({label,sub,icon:Icon,href}) => href ? <Link key={label} href={href} onClick={()=>setMenuOpen(false)} className={`ss-nav-item ${label==="Dashboard"?"selected":""}`}><Icon/><span><b>{label}</b><small>{sub}</small></span></Link> : <button key={label} type="button" className="ss-nav-item ss-nav-planned" onClick={()=>setNotice(true)}><Icon/><span><b>{label}</b><small>{sub}</small></span></button>)}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="mentor-card">
-            <div className="mentor-icon"><Sparkles size={17}/></div>
-            <div><strong>Studio guide</strong><span>Need a hand? Ask anytime.</span></div>
-            <ChevronRight size={16}/>
-          </div>
-          <button className="nav-item"><Settings2 size={18}/><span>Settings</span></button>
-          <div className="profile-mini">
-            <div className="avatar">{userEmail ? userEmail.slice(0,2).toUpperCase() : "CU"}</div><div className="profile-copy"><strong>{userEmail || "My profile"}</strong><span>{userEmail ? "Signed-in learner" : "Foundation learner"}</span></div><ChevronRight size={15}/>
-          </div>
+        <div className="ss-sidebar-promo"><div className="ss-promo-crown">♛</div><div><b>Go Premium</b><small>Unlock more features<br/>and rewards.</small></div><span className="ss-premium-tag">COMING SOON</span></div>
+        <div className="ss-account">
+          <div className="ss-avatar">{userEmail ? userEmail.slice(0,2).toUpperCase() : "CU"}</div>
+          <div><b>{userEmail || "Cletus Ogiji"}</b><small>{userEmail ? "Learner account" : "Master learner"}</small></div>
+          {userEmail ? <button onClick={signOut} aria-label="Sign out"><X size={15}/></button> : <Link href="/login" aria-label="Sign in"><ChevronRight size={17}/></Link>}
         </div>
       </aside>
-
-      {menuOpen && <button className="scrim" onClick={() => setMenuOpen(false)} aria-label="Close navigation"/>}
-
-      <section className="main-area">
-        <header className="topbar">
-          <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={20}/></button>
-          <div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div>
-          <div className="top-actions">{userEmail ? <><span className="signed-in-email">{userEmail}</span><button className="auth-entry" onClick={signOut}>Sign out</button></> : <Link href="/login" className="auth-entry">Sign in</Link>}<div className="search-box"><Search size={16}/><span>Search lessons, topics...</span><kbd>⌘ K</kbd></div><button className="help-button" aria-label="Help"><CircleHelp size={18}/></button><div className="top-avatar">CU</div></div>
+      {menuOpen && <button className="ss-scrim" onClick={()=>setMenuOpen(false)} aria-label="Close menu"/>}
+      <section className="ss-main">
+        <header className="ss-topbar">
+          <button className="ss-mobile-menu" onClick={()=>setMenuOpen(true)} aria-label="Open navigation"><Menu/></button>
+          <div className="ss-search"><Search/><span>Search courses, lessons, challenges...</span><kbd>Ctrl + K</kbd></div>
+          <div className="ss-top-actions"><span className="ss-online"><i/>Online</span><button className="ss-bell" onClick={()=>setNotice(true)} aria-label="Notifications"><Bell/><i>3</i></button><Link href="/login" className="ss-top-avatar">{userEmail ? userEmail.slice(0,2).toUpperCase() : "CU"}</Link></div>
         </header>
-
-        <div className="content-wrap">
-          <div className="welcome-row">
-            <div><div className="eyebrow"><span className="eyebrow-line"/> YOUR NEXT CHAPTER STARTS HERE</div><h1>Build skills that <em>ship.</em></h1><p className="welcome-copy">A focused space to learn the craft, practise with purpose, and turn knowledge into proof.</p></div>
-            <div className="date-chip"><span className="live-pulse"/> LEARNING MODE <span className="date-divider"/> 2026 / 27</div>
-          </div>
-
-          <section className="hero-panel">
-            <div className="hero-grid"/>
-            <div className="hero-content">
-              <div className="hero-kicker"><span className="python-mark">Py</span> YOUR FIRST LEARNING PATH <span className="path-tag">FOUNDATION</span></div>
-              <h2>Python<br/><span>Mastery</span></h2>
-              <p>From your first line of code to confident problem-solving. Learn in stages, practise every concept, and earn each milestone.</p>
-              <div className="hero-meta"><span><BookOpen size={15}/> 8 learning stages</span><span><Activity size={15}/> Practical-first</span><span><Gauge size={15}/> Beginner friendly</span></div>
-              <Link className="primary-button" href="/academy">{started ? "Continue learning" : "Enter the academy"} <ArrowRight size={17}/></Link>
+        <div className="ss-content">
+          <section className="ss-hero">
+            <div className="ss-hero-copy">
+              <span className="ss-welcome-pill">WELCOME BACK</span>
+              <h1>Cletus Ogiji<span className="ss-verified">✓</span></h1>
+              <p>Keep coding. Keep growing. You're on the right path to becoming a top developer.</p>
+              <Link href="/academy" className="ss-primary"><Play size={15} fill="currentColor"/> Continue Learning <ArrowRight size={17}/></Link>
+              <div className="ss-hero-quote">“Dream it. Code it. Build it.” <small>— Syntax Studio</small></div>
             </div>
-            <div className="hero-art" aria-hidden="true">
-              <div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="orbit orbit-three"/>
-              <div className="code-tile tile-back"><span>def</span><b>learn()</b><small>return growth</small></div>
-              <div className="code-tile tile-front"><div className="tile-top"><i/><i/><i/><span>main.py</span></div><div className="code-lines"><span><b>01</b> <i>class</i> Syntax:</span><span><b>02</b> &nbsp; skill = <em>"curiosity"</em></span><span><b>03</b> &nbsp; build(skill)</span><span><b>04</b> <i>print</i>(<em>"Hello, world"</em>)</span></div><div className="tile-status"><span><Check size={12}/> READY TO RUN</span><span>PY 3.12</span></div></div>
-              <div className="floating-orb"><Braces size={25}/></div>
+            <div className="ss-hero-visual" aria-hidden="true">
+              <div className="ss-glow ss-glow-one"/><div className="ss-glow ss-glow-two"/>
+              <div className="ss-dev-card"><div className="ss-dev-top"><i/><i/><i/><span>main.py</span></div><pre><em>def</em> build_future():{"\n"}  skills = <strong>learn()</strong>{"\n"}  <em>return</em> skills</pre><div className="ss-dev-bottom"><span>● ENVIRONMENT READY</span><span>PY 3.12</span></div></div>
+              <div className="ss-python-orb">Py</div><div className="ss-code-orb"><Braces/></div>
+              <div className="ss-visual-caption">BUILD SOMETHING<br/><b>THAT MATTERS.</b></div>
             </div>
-            <div className="hero-index">01 <span>/</span> 08</div>
           </section>
 
-          <div className="section-heading"><div><div className="eyebrow">YOUR PROGRESS</div><h3>A little progress, every day.</h3></div><Link className="text-button" href="/academy">View learning path <ArrowRight size={15}/></Link></div>
-          <div className="stats-grid">
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon blue"><Zap size={17}/></span><span className="stat-caption">TOTAL EXPERIENCE</span></div><div className="stat-value">000 <small>XP</small></div><div className="stat-foot"><span>Earn XP as you learn</span><ArrowDownRight size={15}/></div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon orange"><Flame size={17}/></span><span className="stat-caption">LEARNING STREAK</span></div><div className="stat-value">0 <small>days</small></div><div className="stat-foot"><span>Start your first streak</span><span className="muted">—</span></div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon violet"><Award size={17}/></span><span className="stat-caption">SKILLS MASTERED</span></div><div className="stat-value">0 <small>/ 8</small></div><div className="stat-foot"><span>Milestones await</span><span className="muted">—</span></div></article>
-            <article className="stat-card"><div className="stat-top"><span className="stat-icon green"><Trophy size={17}/></span><span className="stat-caption">ACHIEVEMENTS</span></div><div className="stat-value">0 <small>earned</small></div><div className="stat-foot"><span>Your gallery is waiting</span><span className="muted">—</span></div></article>
-          </div>
+          <section className="ss-overview-grid">
+            <article className="ss-rank-card"><span className="ss-card-kicker">YOUR RANK</span><div className="ss-rank-emblem"><Medal/></div><h2>Initiate</h2><p>Your journey starts here.</p><div className="ss-xp-track"><i/></div><small>0 / 500 XP <span>LEVEL 01</span></small></article>
+            <article className="ss-streak-card"><span className="ss-card-kicker">LEARNING STREAK</span><div className="ss-streak-art"><Flame/></div><strong>Start your streak</strong><p>Build a little momentum every day.</p><div className="ss-week"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div></article>
+          </section>
 
-          <div className="lower-grid">
-            <section className="panel learning-panel">
-              <div className="panel-heading"><div><div className="eyebrow">PICK UP WHERE YOU LEFT OFF</div><h3>Next in your pathway</h3></div><span className="stage-count">STAGE 01 / 08</span></div>
-              <div className="path-progress"><div className="path-progress-fill"/></div>
-              <div className="lesson-list">{lessons.map((lesson, index) => <div className={`lesson-row ${index > 0 ? "lesson-locked" : ""}`} key={lesson.number}><div className="lesson-number">{lesson.number}</div><div className="lesson-info"><strong>{lesson.title}</strong><span>{lesson.detail}</span></div><span className="lesson-time">{lesson.duration}</span>{index === 0 ? <Link className="lesson-play" href="/academy/python-foundations" aria-label="Start lesson"><Play size={14} fill="currentColor"/></Link> : <LockKeyhole className="lock-icon" size={16}/>}</div>)}</div>
-              <Link className="panel-link" href="/academy">Explore the full pathway <ArrowRight size={15}/></Link>
-            </section>
-            <section className="panel focus-panel">
-              <div className="panel-heading"><div><div className="eyebrow">YOUR DAILY FOCUS</div><h3>Make today count.</h3></div><div className="focus-symbol"><Compass size={19}/></div></div>
-              <div className="focus-visual"><div className="focus-ring"><span>01</span><small>STEP</small></div><div className="focus-copy"><strong>One concept.<br/>One practical.</strong><span>Small, consistent progress builds real skill.</span></div></div>
-              <div className="focus-footer"><span><Command size={14}/> 20–30 MIN SESSION</span><Link href="/academy">Begin <ArrowRight size={14}/></Link></div>
-            </section>
-          </div>
+          <section className="ss-primary-grid">
+            <article className="ss-panel ss-continue">
+              <div className="ss-panel-head"><div><span className="ss-card-kicker">PICK UP WHERE YOU LEFT OFF</span><h2><BookOpen/> Continue Learning</h2></div><span className="ss-course-chip">PYTHON MASTERY</span></div>
+              <div className="ss-lesson-card"><div className="ss-lesson-art"><div className="ss-python-large">Py</div><span>PYTHON FOUNDATIONS</span></div><div className="ss-lesson-info"><h3>Python Foundations</h3><p>Module 1 · Lesson 1</p><b>Getting started with Python</b><div className="ss-progress"><i/></div><small>Ready to begin <span>18 min</span></small><Link href="/academy/python-foundations">Start lesson <ArrowRight size={15}/></Link></div></div>
+            </article>
+            <article className="ss-panel ss-progress-panel"><div className="ss-panel-head"><div><span className="ss-card-kicker">YOUR JOURNEY</span><h2><Activity/> Your Progress</h2></div><span className="ss-muted-label">NEW LEARNER</span></div><div className="ss-progress-empty"><div className="ss-progress-ring"><span>0<small>%</small></span></div><div><b>Your story starts here.</b><p>Complete your first lesson to begin tracking your progress.</p><Link href="/academy">View pathway <ArrowRight size={14}/></Link></div></div><div className="ss-mini-stats"><span><Zap/> 0 XP</span><span><Award/> 0 awards</span><span><BookOpen/> 0 lessons</span></div></article>
+          </section>
 
-          <footer className="footer-line"><span>SYNTAX STUDIO <i>·</i> LEARN WITH INTENTION.</span><span>BUILT FOR THE LONG GAME <span className="footer-spark">✳</span></span></footer>
+          <section className="ss-lower-grid">
+            <article className="ss-panel ss-courses"><div className="ss-panel-head"><div><span className="ss-card-kicker">EXPLORE THE ACADEMY</span><h2><GraduationCap/> Recommended Courses</h2></div><Link href="/academy">Explore all <ArrowRight size={14}/></Link></div><div className="ss-course-grid">{courses.map(course=><div className="ss-course-card" key={course.title}><div className={`ss-course-art ${course.tone}`}><span>{course.symbol}</span><small>{course.level}</small></div><h3>{course.title}</h3><p>{course.detail}</p><div className="ss-course-rating">★ {course.rating} <span>· {course.students} learners</span></div><Link href="/academy">Explore course <ArrowRight size={14}/></Link></div>)}</div></article>
+            <article className="ss-panel ss-activity"><div className="ss-panel-head"><div><span className="ss-card-kicker">YOUR LEARNING HISTORY</span><h2><Zap/> Recent Activity</h2></div></div><div className="ss-empty-activity"><div className="ss-empty-icon"><Sparkles/></div><b>Your activity will appear here.</b><p>Lessons, exercises and achievements will build your learning history.</p><Link href="/academy">Start learning <ArrowRight size={14}/></Link></div></article>
+            <article className="ss-panel ss-leaderboard"><div className="ss-panel-head"><div><span className="ss-card-kicker">THE COMMUNITY</span><h2><Trophy/> Leaderboard</h2></div></div><div className="ss-leader-tabs">{["Global","Weekly","Monthly"].map(tab=><button key={tab} className={leaderboard===tab?"active":""} onClick={()=>setLeaderboard(tab)}>{tab}</button>)}</div><div className="ss-leader-empty"><Users/><b>Your competition starts soon.</b><p>Rankings will appear when verified challenge results are available.</p></div></article>
+          </section>
+          <footer className="ss-footer"><div className="ss-footer-mark"><Code2/></div><div><b>Learn. Practise. Build. Prove. Advance.</b><small>Build real skills, one line at a time.</small></div><Link href="/academy">Explore the Academy <ArrowRight size={16}/></Link></footer>
         </div>
       </section>
-      {showWelcome && <div className="welcome-toast"><div className="toast-mark"><Sparkles size={17}/></div><div><strong>Welcome to Syntax Studio</strong><span>Your learning workspace is taking shape.</span></div><button onClick={() => setShowWelcome(false)} aria-label="Dismiss welcome"><X size={15}/></button></div>}
+      {notice && <div className="ss-notice" role="status"><Sparkles/><div><b>You're viewing the design preview.</b><small>This area will become interactive as its feature is implemented.</small></div><button onClick={()=>setNotice(false)} aria-label="Dismiss"><X size={15}/></button></div>}
     </main>
   );
 }
