@@ -15,7 +15,7 @@ const navigation = [
   { label: "Academy", sub: "Courses & paths", icon: GraduationCap, href: "/academy" },
   { label: "Code Studio", sub: "Practice live", icon: Code2, href: "/studio" },
   { label: "Challenge Arena", sub: "Daily challenges", icon: Target, href: "/challenges" },
-  { label: "Examination Centre", sub: "Test & assess", icon: ShieldCheck },
+  { label: "Examination Centre", sub: "Test & assess", icon: ShieldCheck, href: "/exams" },
   { label: "Trophy Gallery", sub: "Achievements", icon: Medal },
   { label: "Leaderboard", sub: "Rankings", icon: Activity },
   { label: "Showcase Room", sub: "Projects", icon: Rocket },
