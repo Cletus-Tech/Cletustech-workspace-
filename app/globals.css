@@ -382,3 +382,4 @@
 @media(max-width:600px){.provider-credential-panel{padding:12px}.provider-credential-heading{align-items:flex-start;flex-direction:column}.provider-account-row{flex-wrap:wrap}.provider-account-row .account-copy{flex:1 1 calc(100% - 45px)}}
 
 .provider-cost-note{color:#d6b987;font-size:8px;line-height:1.55}
+\n.provider-key-link{display:inline-block;margin:5px 0 0 8px;color:#b7a8ff;font-size:9px;font-weight:700}.provider-key-link:hover{color:#e1d8ff;text-decoration:underline}\n
