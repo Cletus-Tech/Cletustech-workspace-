@@ -116,15 +116,39 @@ async function verifyChatModel(baseUrl: string, apiKey: string, modelId: string)
   }
 }
 
-function getMediaAdapter(providerName: string, category: string) {
+function providerHost(websiteUrl: string | null) {
+  try { return websiteUrl ? new URL(websiteUrl).hostname.toLowerCase().replace(/^www\\./, "") : ""; }
+  catch { return ""; }
+}
+
+function getTextProviderEndpoint(providerName: string, websiteUrl: string | null) {
+  const byName = providerEndpoints[providerName.trim().toLowerCase()];
+  if (byName) return byName;
+  const host = providerHost(websiteUrl);
+  const byHost: Record<string, string> = {
+    "openai.com": "https://api.openai.com/v1",
+    "openrouter.ai": "https://openrouter.ai/api/v1",
+    "groq.com": "https://api.groq.com/openai/v1",
+    "ai.google.dev": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "deepseek.com": "https://api.deepseek.com/v1",
+    "together.ai": "https://api.together.xyz/v1",
+    "mistral.ai": "https://api.mistral.ai/v1",
+    "cerebras.ai": "https://api.cerebras.ai/v1",
+    "fireworks.ai": "https://api.fireworks.ai/inference/v1",
+  };
+  return byHost[host] ?? null;
+}
+
+function getMediaAdapter(providerName: string, category: string, websiteUrl: string | null) {
   const name = providerName.trim().toLowerCase();
-  if (name.includes("runway") && ["image","video","voice","music"].includes(category)) {
+  const host = providerHost(websiteUrl);
+  if ((name.includes("runway") || host === "runwayml.com") && ["image","video","voice","music"].includes(category)) {
     return { adapterKey: "runway_v1", baseUrl: "https://api.dev.runwayml.com/v1" };
   }
-  if ((name.includes("fal.ai") || name === "fal") && ["image","video","voice","music"].includes(category)) {
+  if ((name.includes("fal.ai") || name === "fal" || host === "fal.ai") && ["image","video","voice","music"].includes(category)) {
     return { adapterKey: "fal_queue", baseUrl: "https://queue.fal.run" };
   }
-  if (name.includes("elevenlabs") && ["voice","music"].includes(category)) {
+  if ((name.includes("elevenlabs") || host === "elevenlabs.io") && ["voice","music"].includes(category)) {
     return { adapterKey: "elevenlabs_v1", baseUrl: "https://api.elevenlabs.io" };
   }
   return null;
@@ -226,7 +250,7 @@ Deno.serve(async (req: Request) => {
 
   const ownerId = authData.user.id;
   const [{ data: provider, error: providerError }, { data: account, error: accountError }] = await Promise.all([
-    supabase.from("ai_providers").select("id,name,category,is_enabled")
+    supabase.from("ai_providers").select("id,name,category,is_enabled,website_url")
       .eq("id", providerId).eq("owner_id", ownerId).single(),
     supabase.from("provider_accounts").select("id,provider_id,status")
       .eq("id", accountId).eq("provider_id", providerId).eq("owner_id", ownerId).single(),
@@ -254,7 +278,7 @@ Deno.serve(async (req: Request) => {
     if (!provider.is_enabled) return reply({ error: "Enable this provider before connecting it." }, 409);
 
     if (action === "connect_media") {
-      const mediaAdapter = getMediaAdapter(provider.name, provider.category);
+      const mediaAdapter = getMediaAdapter(provider.name, provider.category, provider.website_url);
       if (!mediaAdapter) return reply({
         error: "No verified image, video, voice or music adapter is available for this provider and category yet.",
         code: "MEDIA_ADAPTER_UNAVAILABLE",
@@ -293,7 +317,7 @@ Deno.serve(async (req: Request) => {
       return reply({ error: "Choose the media-provider connection option for image, video, voice or music services." }, 422);
     }
 
-    const baseUrl = providerEndpoints[String(provider.name).trim().toLowerCase()];
+    const baseUrl = getTextProviderEndpoint(provider.name, provider.website_url);
     if (!baseUrl) return reply({
       error: "There is no verified API adapter for this provider yet. Use one of the supported language-model providers or keep this provider as a manual handoff.",
       code: "PROVIDER_ADAPTER_UNAVAILABLE",
