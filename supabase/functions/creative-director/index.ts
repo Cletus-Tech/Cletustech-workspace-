@@ -14,6 +14,53 @@ function reply(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function getSupabaseCredential(kind: "publishable" | "secret") {
+  const legacy = kind === "publishable"
+    ? Deno.env.get("SUPABASE_ANON_KEY")
+    : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (legacy) return { key: legacy, legacy: true };
+  const raw = Deno.env.get(kind === "publishable" ? "SUPABASE_PUBLISHABLE_KEYS" : "SUPABASE_SECRET_KEYS");
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      const key = parsed.default ?? Object.values(parsed)[0];
+      if (typeof key === "string" && key) return { key, legacy: false };
+    } catch { /* handled by the missing-credential response */ }
+  }
+  const fallback = kind === "publishable"
+    ? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")
+    : Deno.env.get("SUPABASE_SECRET_KEY");
+  return fallback ? { key: fallback, legacy: !fallback.startsWith("sb_") } : null;
+}
+
+async function readProviderSecret(
+  supabaseUrl: string,
+  ownerId: string,
+  providerId: string,
+  accountId: string,
+) {
+  const credential = getSupabaseCredential("secret");
+  if (!credential) throw new Error("Secure provider credential access is not configured on the server.");
+  const headers: Record<string, string> = {
+    "apikey": credential.key,
+    "Content-Type": "application/json",
+  };
+  if (credential.legacy) headers.Authorization = "Bearer " + credential.key;
+  const response = await fetch(supabaseUrl + "/rest/v1/rpc/read_provider_secret", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      p_owner_id: ownerId,
+      p_provider_id: providerId,
+      p_account_id: accountId,
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error("The saved provider credential could not be retrieved securely.");
+  const value = await response.json();
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 function parseJson(content: string) {
   const normalized = content.trim().replace(/^\x60\x60\x60(?:json)?\s*/i, "").replace(/\s*\x60\x60\x60$/, "");
   const start = normalized.indexOf("{");
@@ -30,8 +77,9 @@ Deno.serve(async (req: Request) => {
   if (!authorization?.startsWith("Bearer ")) return reply({ error: "Sign in to continue." }, 401);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-  if (!supabaseUrl || !supabaseKey) return reply({ error: "Workspace backend configuration is incomplete." }, 503);
+  const publishable = getSupabaseCredential("publishable");
+  if (!supabaseUrl || !publishable) return reply({ error: "Workspace backend configuration is incomplete." }, 503);
+  const supabaseKey = publishable.key;
 
   const supabase = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: authorization } },
@@ -59,12 +107,69 @@ Deno.serve(async (req: Request) => {
 
   if (projectError || !project) return reply({ error: "Project not found or access denied." }, 404);
 
-  const apiKey = Deno.env.get("AI_API_KEY");
-  const model = Deno.env.get("AI_MODEL");
-  const endpoint = Deno.env.get("AI_CHAT_COMPLETIONS_URL") ?? "https://api.openai.com/v1/chat/completions";
+  // Prefer the user's verified default language-model provider. The global environment
+  // variables remain a backwards-compatible fallback for an existing single-provider setup.
+  let apiKey = Deno.env.get("AI_API_KEY") ?? "";
+  let model = Deno.env.get("AI_MODEL") ?? "";
+  let endpoint = Deno.env.get("AI_CHAT_COMPLETIONS_URL") ?? "https://api.openai.com/v1/chat/completions";
+
+  const { data: defaultProvider, error: defaultProviderError } = await supabase
+    .from("ai_providers")
+    .select("id,name,category,connection_status")
+    .eq("owner_id", authData.user.id)
+    .eq("is_enabled", true)
+    .eq("is_default", true)
+    .eq("category", "script")
+    .maybeSingle();
+  if (defaultProviderError) return reply({ error: "Could not read your default AI provider: " + defaultProviderError.message }, 500);
+
+  let selectedProvider = defaultProvider;
+  if (!selectedProvider) {
+    const { data: generalProvider, error: generalProviderError } = await supabase
+      .from("ai_providers")
+      .select("id,name,category,connection_status")
+      .eq("owner_id", authData.user.id)
+      .eq("is_enabled", true)
+      .eq("is_default", true)
+      .eq("category", "general")
+      .maybeSingle();
+    if (generalProviderError) return reply({ error: "Could not read your default AI provider: " + generalProviderError.message }, 500);
+    selectedProvider = generalProvider;
+  }
+
+  if (selectedProvider) {
+    if (selectedProvider.connection_status !== "connected") {
+      return reply({ error: "Your default language-model provider is not verified. Reconnect it in AI tool manager.", code: "AI_PROVIDER_NOT_VERIFIED" }, 409);
+    }
+    const { data: connectedAccount, error: accountError } = await supabase
+      .from("provider_accounts")
+      .select("id,api_base_url,model_id,adapter_key,status")
+      .eq("owner_id", authData.user.id)
+      .eq("provider_id", selectedProvider.id)
+      .eq("status", "connected")
+      .eq("adapter_key", "openai_compatible_chat")
+      .order("last_verified_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (accountError) return reply({ error: "Could not read the verified provider account: " + accountError.message }, 500);
+    if (!connectedAccount?.api_base_url || !connectedAccount.model_id) {
+      return reply({ error: "Your default provider has no verified language-model account. Connect an account in AI tool manager.", code: "AI_PROVIDER_ACCOUNT_MISSING" }, 409);
+    }
+    try {
+      const savedKey = await readProviderSecret(supabaseUrl, authData.user.id, selectedProvider.id, connectedAccount.id);
+      if (!savedKey) return reply({ error: "The provider credential is missing from secure storage. Reconnect this account in AI tool manager.", code: "AI_PROVIDER_SECRET_MISSING" }, 409);
+      apiKey = savedKey;
+      model = connectedAccount.model_id;
+      endpoint = connectedAccount.api_base_url.replace(/\/$/, "") + "/chat/completions";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Secure provider access failed.";
+      return reply({ error: message, code: "AI_PROVIDER_SECRET_ERROR" }, 503);
+    }
+  }
+
   if (!apiKey || !model) {
     return reply({
-      error: "The creative AI engine is not connected yet. Add AI_API_KEY and AI_MODEL as Supabase Edge Function secrets before running analysis.",
+      error: "No verified default language-model provider is configured. Connect a supported provider and choose Set as default in AI tool manager.",
       code: "AI_PROVIDER_NOT_CONFIGURED",
     }, 503);
   }
