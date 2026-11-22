@@ -45,7 +45,7 @@ export default function Home() {
         <div className="workspace-label">WORKSPACE</div>
         <nav className="main-nav">
           {navItems.map(({ label, icon: Icon }) => (
-            {label === "Academy" ? <Link key={label} href="/academy" className={`nav-item ${active === label ? "active" : ""}`}><Icon size={18} strokeWidth={1.8}/><span>{label}</span></Link> : <button key={label} className={`nav-item ${active === label ? "active" : ""}`} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={18} strokeWidth={1.8}/><span>{label}</span>{label === "Challenges" && <i className="nav-dot"/>}</button>}
+            label === "Academy" ? <Link key={label} href="/academy" className={`nav-item ${active === label ? "active" : ""}`}><Icon size={18} strokeWidth={1.8}/><span>{label}</span></Link> : <button key={label} className={`nav-item ${active === label ? "active" : ""}`} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={18} strokeWidth={1.8}/><span>{label}</span>{label === "Challenges" && <i className="nav-dot"/>}</button>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -107,7 +107,7 @@ export default function Home() {
               <div className="panel-heading"><div><div className="eyebrow">PICK UP WHERE YOU LEFT OFF</div><h3>Next in your pathway</h3></div><span className="stage-count">STAGE 01 / 08</span></div>
               <div className="path-progress"><div className="path-progress-fill"/></div>
               <div className="lesson-list">{lessons.map((lesson, index) => <div className={`lesson-row ${index > 0 ? "lesson-locked" : ""}`} key={lesson.number}><div className="lesson-number">{lesson.number}</div><div className="lesson-info"><strong>{lesson.title}</strong><span>{lesson.detail}</span></div><span className="lesson-time">{lesson.duration}</span>{index === 0 ? <Link className="lesson-play" href="/academy/python-foundations" aria-label="Start lesson"><Play size={14} fill="currentColor"/></Link> : <LockKeyhole className="lock-icon" size={16}/>}</div>)}</div>
-              <button className="panel-link" onClick={() => setActive("Academy")}>Explore the full pathway <ArrowRight size={15}/></button>
+              <Link className="panel-link" href="/academy">Explore the full pathway <ArrowRight size={15}/></Link>
             </section>
             <section className="panel focus-panel">
               <div className="panel-heading"><div><div className="eyebrow">YOUR DAILY FOCUS</div><h3>Make today count.</h3></div><div className="focus-symbol"><Compass size={19}/></div></div>
