@@ -106,7 +106,7 @@ export default function ToolsPage() {
           ["Runway Music", "https://runwayml.com", "music", "runway_v1", "https://api.dev.runwayml.com/v1"],
           ["ElevenLabs Voice", "https://elevenlabs.io", "voice", "elevenlabs_v1", "https://api.elevenlabs.io"],
         ];
-        await supabase.from("ai_providers").insert(starter.map(([providerName, websiteUrl, providerCategory, adapterKey, baseUrl]) => ({
+        const { data: seededProviders, error: seedError } = await supabase.from("ai_providers").insert(starter.map(([providerName, websiteUrl, providerCategory, adapterKey, baseUrl]) => ({
           owner_id: currentUser.id,
           name: providerName,
           category: providerCategory,
@@ -116,7 +116,19 @@ export default function ToolsPage() {
           notes: adapterKey === "openai_compatible_chat"
             ? "Starter language-model provider profile. API key and model verification are required before use."
             : "Starter multimodal provider profile. API key verification is required; automated generation awaits its production worker adapter.",
-        })));
+        }))).select("id,name");
+        if (!seedError && seededProviders?.length) {
+          const { error: accountSeedError } = await supabase.from("provider_accounts").insert(seededProviders.map(provider => ({
+            owner_id: currentUser.id,
+            provider_id: provider.id,
+            label: "Primary account",
+            connection_method: "api_key_reference",
+            notes: "Primary API account profile. Add and verify your API key to activate this provider.",
+          })));
+          if (accountSeedError) setError("Provider catalogue was added, but account profiles need a refresh: " + accountSeedError.message);
+        } else if (seedError) {
+          setError("Could not create the starter provider catalogue: " + seedError.message);
+        }
         const refreshed = await supabase.from("ai_providers").select("*").order("created_at", { ascending: false });
         data = refreshed.data;
         queryError = refreshed.error;
