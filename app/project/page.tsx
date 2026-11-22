@@ -416,7 +416,7 @@ export default function ProjectWorkspacePage() {
             <div className="script-result-heading"><div><span className="section-kicker">SCREENPLAY WORKSPACE</span><h3>{String((refinedScript ?? scriptDraft)?.title ?? project.name)}</h3></div><span>{refinedScript ? "REFINED VERSION" : "FIRST DRAFT"}</span></div>
             <p className="script-logline">{String((refinedScript ?? scriptDraft)?.logline ?? "")}</p>
             <pre>{String((refinedScript ?? scriptDraft)?.screenplay ?? "")}</pre>
-            {Array.isArray((refinedScript ?? scriptDraft)?.revision_notes) && <div className="script-revision-notes"><strong>EDITOR'S CHANGES</strong>{((refinedScript ?? scriptDraft)?.revision_notes as string[]).map((note,index)=><p key={index}>• {note}</p>)}</div>}
+            {Array.isArray((refinedScript ?? scriptDraft)?.revision_notes) && <div className="script-revision-notes"><strong>EDITOR&apos;S CHANGES</strong>{((refinedScript ?? scriptDraft)?.revision_notes as string[]).map((note,index)=><p key={index}>• {note}</p>)}</div>}
             {Array.isArray((refinedScript ?? scriptDraft)?.scene_breakdown) && <div className="script-scene-count">{((refinedScript ?? scriptDraft)?.scene_breakdown as unknown[]).length} structured scenes included in the screenplay output.</div>}
             <div className="script-approval-row"><span>{scriptApproved ? "Approved screenplay saved to this project." : "Review the screenplay before approving the next stage."}</span><button className="primary-button" onClick={() => void approveScreenplay()} disabled={saving || scriptApproved}>{saving ? "Saving approval…" : scriptApproved ? "Screenplay approved ✓" : "Approve screenplay & continue →"}</button></div>
           </div>}
