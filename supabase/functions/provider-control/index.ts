@@ -69,7 +69,7 @@ async function callAdminRpc(url: string, functionName: string, args: Record<stri
   return await response.json();
 }
 
-async function verifyProviderKey(baseUrl: string, apiKey: string, providerName: string) {
+async function verifyProviderKey(baseUrl: string, apiKey: string) {
   if (new URL(baseUrl).hostname === "openrouter.ai") {
     const keyCheck = await fetch(baseUrl + "/key", {
       method: "GET",
@@ -200,8 +200,8 @@ async function verifyMediaProvider(adapterKey: string, apiKey: string, baseUrl: 
   return { verified: true, detail };
 }
 
-async function fetchModels(baseUrl: string, apiKey: string, providerName: string) {
-  await verifyProviderKey(baseUrl, apiKey, providerName);
+async function fetchModels(baseUrl: string, apiKey: string) {
+  await verifyProviderKey(baseUrl, apiKey);
   const response = await fetch(baseUrl + "/models", {
     method: "GET",
     headers: { "Authorization": "Bearer " + apiKey, "Accept": "application/json" },
@@ -332,7 +332,7 @@ Deno.serve(async (req: Request) => {
     const apiKey = body.api_key?.trim();
     if (!apiKey || apiKey.length < 8 || apiKey.length > 4096) return reply({ error: "Enter a valid API key in the secure connection form." }, 400);
 
-    const models = await fetchModels(baseUrl, apiKey, provider.name);
+    const models = await fetchModels(baseUrl, apiKey);
     if (action === "discover_models") {
       return reply({ ok: true, action, provider: provider.name, api_base_url: baseUrl, models });
     }
