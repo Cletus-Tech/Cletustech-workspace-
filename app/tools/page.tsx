@@ -71,25 +71,33 @@ export default function ToolsPage() {
       // Give a new workspace a useful, honest starter catalogue. These are profiles,
       // not claimed connections; credentials are still supplied and tested by the owner.
       if ((data ?? []).length === 0) {
-        const starter = [
-          ["OpenAI", "https://openai.com", "https://api.openai.com/v1"],
-          ["OpenRouter", "https://openrouter.ai", "https://openrouter.ai/api/v1"],
-          ["Groq", "https://groq.com", "https://api.groq.com/openai/v1"],
-          ["Google Gemini", "https://ai.google.dev", "https://generativelanguage.googleapis.com/v1beta/openai"],
-          ["DeepSeek", "https://www.deepseek.com", "https://api.deepseek.com/v1"],
-          ["Together AI", "https://www.together.ai", "https://api.together.xyz/v1"],
-          ["Mistral AI", "https://mistral.ai", "https://api.mistral.ai/v1"],
-          ["Cerebras", "https://www.cerebras.ai", "https://api.cerebras.ai/v1"],
-          ["Fireworks AI", "https://fireworks.ai", "https://api.fireworks.ai/inference/v1"],
+        const starter: Array<[string, string, string, string, string]> = [
+          ["OpenAI", "https://openai.com", "script", "openai_compatible_chat", "https://api.openai.com/v1"],
+          ["OpenRouter", "https://openrouter.ai", "script", "openai_compatible_chat", "https://openrouter.ai/api/v1"],
+          ["Groq", "https://groq.com", "script", "openai_compatible_chat", "https://api.groq.com/openai/v1"],
+          ["Google Gemini", "https://ai.google.dev", "script", "openai_compatible_chat", "https://generativelanguage.googleapis.com/v1beta/openai"],
+          ["DeepSeek", "https://www.deepseek.com", "script", "openai_compatible_chat", "https://api.deepseek.com/v1"],
+          ["Together AI", "https://www.together.ai", "script", "openai_compatible_chat", "https://api.together.xyz/v1"],
+          ["Mistral AI", "https://mistral.ai", "script", "openai_compatible_chat", "https://api.mistral.ai/v1"],
+          ["Cerebras", "https://www.cerebras.ai", "script", "openai_compatible_chat", "https://api.cerebras.ai/v1"],
+          ["Fireworks AI", "https://fireworks.ai", "script", "openai_compatible_chat", "https://api.fireworks.ai/inference/v1"],
+          ["fal.ai Image", "https://fal.ai", "image", "fal_queue", "https://queue.fal.run"],
+          ["fal.ai Video", "https://fal.ai", "video", "fal_queue", "https://queue.fal.run"],
+          ["Runway Video", "https://runwayml.com", "video", "runway_v1", "https://api.dev.runwayml.com/v1"],
+          ["Runway Image", "https://runwayml.com", "image", "runway_v1", "https://api.dev.runwayml.com/v1"],
+          ["Runway Music", "https://runwayml.com", "music", "runway_v1", "https://api.dev.runwayml.com/v1"],
+          ["ElevenLabs Voice", "https://elevenlabs.io", "voice", "elevenlabs_v1", "https://api.elevenlabs.io"],
         ];
-        await supabase.from("ai_providers").insert(starter.map(([providerName, websiteUrl, baseUrl]) => ({
+        await supabase.from("ai_providers").insert(starter.map(([providerName, websiteUrl, providerCategory, adapterKey, baseUrl]) => ({
           owner_id: currentUser.id,
           name: providerName,
-          category: "script",
+          category: providerCategory,
           website_url: websiteUrl,
           connection_type: "official_api",
-          capabilities: { adapter_key: "openai_compatible_chat", api_base_url: baseUrl, supports: ["chat_completions", "model_discovery"] },
-          notes: "Starter language-model provider profile. API key and model verification are required before use.",
+          capabilities: { adapter_key: adapterKey, api_base_url: baseUrl, supports: adapterKey === "openai_compatible_chat" ? ["chat_completions", "model_discovery"] : ["credential_verification"] },
+          notes: adapterKey === "openai_compatible_chat"
+            ? "Starter language-model provider profile. API key and model verification are required before use."
+            : "Starter multimodal provider profile. API key verification is required; automated generation awaits its production worker adapter.",
         })));
         const refreshed = await supabase.from("ai_providers").select("*").order("created_at", { ascending: false });
         data = refreshed.data;
@@ -212,6 +220,22 @@ export default function ToolsPage() {
     await load();
   }
 
+  async function connectMediaProviderAccount() {
+    if (!accountProvider || !editingAccount || !apiKey.trim() || !accountModel.trim()) {
+      setError("Enter the provider API key and the model or endpoint identifier for this account.");
+      return;
+    }
+    setConnectionTesting(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("provider-control", {
+      body: { action: "connect_media", provider_id: accountProvider.id, account_id: editingAccount.id, api_key: apiKey.trim(), model_id: accountModel.trim() }
+    });
+    setConnectionTesting(false);
+    if (invokeError || data?.error) { setError(data?.error || invokeError?.message || "Media provider connection failed."); return; }
+    setApiKey("");
+    setNotice(data.verification + ". Credential saved in encrypted storage. Automated generation still requires the matching worker adapter.");
+    await load();
+  }
+
   async function setDefaultProvider(provider: Provider) {
     const account = accounts.find(item => item.provider_id === provider.id && item.status === "connected");
     if (!account) { setError("Connect and verify an account before setting this provider as default."); return; }
@@ -301,6 +325,18 @@ export default function ToolsPage() {
           <button type="button" className="primary-button" disabled={connectionTesting || !apiKey.trim() || !accountModel} onClick={() => void connectProviderAccount()}>{connectionTesting ? "Saving secure connection…" : "Connect & save credential"}</button>
         </>}
         {editingAccount.status === "connected" && <small className="provider-safe-note">Credential stored encrypted. Leave the API key blank to keep the current connection.</small>}
+      </div>}
+      {editingAccount && ["image","video","voice","music"].includes(accountProvider.category) && <div className="provider-credential-panel">
+        <div className="provider-credential-heading"><strong>Secure media-provider connection</strong><span className={editingAccount.status === "connected" ? "provider-enabled" : "provider-disabled"}>{editingAccount.status.replaceAll("_"," ")}</span></div>
+        <p>This checks the provider account without generating an image, video, voice recording or music track. The API key is stored encrypted.</p>
+        {editingAccount.api_base_url && <small className="provider-endpoint">Endpoint: {editingAccount.api_base_url}</small>}
+        <label htmlFor="media-provider-api-key">API key</label>
+        <input id="media-provider-api-key" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={editingAccount.status === "connected" ? "Enter a new key to rotate or re-verify" : "Paste the provider API key"} autoComplete="new-password" />
+        <label htmlFor="media-provider-model">Preferred model or endpoint ID</label>
+        <input id="media-provider-model" value={accountModel} onChange={e => setAccountModel(e.target.value)} placeholder={accountProvider.name.toLowerCase().includes("fal") ? "fal-ai/flux/dev" : accountProvider.name.toLowerCase().includes("elevenlabs") ? "eleven_multilingual_v2" : "gen4.5"} maxLength={240} />
+        <button type="button" className="primary-button" disabled={connectionTesting || !apiKey.trim() || !accountModel.trim()} onClick={() => void connectMediaProviderAccount()}>{connectionTesting ? "Verifying & saving…" : editingAccount.status === "connected" ? "Re-verify & update credential" : "Verify & save secure connection"}</button>
+        {editingAccount.status === "connected" && <small className="provider-safe-note">Credential is encrypted. Leave the API key blank unless you want to rotate or re-verify it.</small>}
+        <small className="provider-cost-note">This account check does not submit a generation request. The selected model identifier is saved as your preferred route; a worker adapter is still required for automated production.</small>
       </div>}
       <label htmlFor="account-notes">Notes</label><textarea id="account-notes" className="provider-notes-input" value={accountNotes} onChange={e => setAccountNotes(e.target.value)} placeholder="Purpose, plan notes or account-specific capabilities…" rows={3} />
       <div className="modal-note">Save this account profile first. Then verify the API key and select a model in the secure connection panel. Never paste provider passwords, session cookies or recovery codes.</div>
