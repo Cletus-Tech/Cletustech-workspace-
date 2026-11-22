@@ -158,6 +158,7 @@ Deno.serve(async (req: Request) => {
       route_status: routeStatus,
       assigned_provider: {
         id: provider.id, name: provider.name, category: provider.category,
+        account_id: account?.id ?? null,
         website_url: provider.website_url, connection_type: provider.connection_type,
         registry_connection_status: provider.connection_status,
         account_label: account?.label ?? null,
