@@ -30,7 +30,9 @@ const categories = [
   ["voice", "Voice & narration"], ["music", "Music & sound"], ["editing", "Editing"], ["general", "General"]
 ];
 
-const categoryNames: Record<string, string> = Object.fromEntries(categories);\n\nconst apiKeyPortals: Record<string, string> = {
+const categoryNames: Record<string, string> = Object.fromEntries(categories);
+
+const apiKeyPortals: Record<string, string> = {
   "OpenAI": "https://platform.openai.com/api-keys",
   "OpenRouter": "https://openrouter.ai/settings/keys",
   "Groq": "https://console.groq.com/keys",
