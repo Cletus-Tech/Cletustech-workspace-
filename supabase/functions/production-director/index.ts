@@ -138,10 +138,16 @@ Deno.serve(async (req: Request) => {
 
     const chosen = candidates[0];
     if (!chosen) {
+      const assemblyStage = requirement.category === "editing";
       return {
-        ...requirement, route_status: "provider_not_registered", assigned_provider: null,
-        alternatives: [], execution_ready: false,
-        next_action: "Register a provider with this capability in AI tool manager.",
+        ...requirement,
+        route_status: assemblyStage ? "worker_not_deployed" : "provider_not_registered",
+        assigned_provider: null,
+        alternatives: [],
+        execution_ready: false,
+        next_action: assemblyStage
+          ? "Final assembly requires the external FFmpeg worker. Deploy and verify that worker; no AI provider API key is required for editing."
+          : "Register a provider with this capability in AI tool manager.",
       };
     }
 
@@ -187,6 +193,7 @@ Deno.serve(async (req: Request) => {
   });
 
   const missing = routes.filter(route => route.route_status === "provider_not_registered").length;
+  const workersNotDeployed = routes.filter(route => route.route_status === "worker_not_deployed").length;
   const needsConnection = routes.filter(route =>
     route.route_status === "account_connection_required" || route.route_status === "provider_account_required"
   ).length;
@@ -200,6 +207,7 @@ Deno.serve(async (req: Request) => {
     summary: {
       required_departments: routes.length,
       providers_not_registered: missing,
+      workers_not_deployed: workersNotDeployed,
       connections_required: needsConnection,
       adapters_not_integrated: adapterPending,
     },
