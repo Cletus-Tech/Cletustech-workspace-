@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Terminal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Terminal } from "lucide-react";
 
 export default function PythonFoundationsLesson() {
   const [answer,setAnswer] = useState("");

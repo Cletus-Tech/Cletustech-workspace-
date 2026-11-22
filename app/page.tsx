@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Activity, ArrowDownRight, ArrowRight, Award, BookOpen, Braces, Check,
   ChevronRight, CircleHelp, Code2, Command, Compass, Flame, Gauge, GraduationCap,
@@ -44,9 +45,7 @@ export default function Home() {
         <div className="workspace-label">WORKSPACE</div>
         <nav className="main-nav">
           {navItems.map(({ label, icon: Icon }) => (
-            <button key={label} className={`nav-item ${active === label ? "active" : ""}`} onClick={() => { setActive(label); setMenuOpen(false); }}>
-              <Icon size={18} strokeWidth={1.8}/><span>{label}</span>{label === "Challenges" && <i className="nav-dot"/>}
-            </button>
+            {label === "Academy" ? <Link key={label} href="/academy" className={`nav-item ${active === label ? "active" : ""}`}><Icon size={18} strokeWidth={1.8}/><span>{label}</span></Link> : <button key={label} className={`nav-item ${active === label ? "active" : ""}`} onClick={() => { setActive(label); setMenuOpen(false); }}><Icon size={18} strokeWidth={1.8}/><span>{label}</span>{label === "Challenges" && <i className="nav-dot"/>}</button>}
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -84,7 +83,7 @@ export default function Home() {
               <h2>Python<br/><span>Mastery</span></h2>
               <p>From your first line of code to confident problem-solving. Learn in stages, practise every concept, and earn each milestone.</p>
               <div className="hero-meta"><span><BookOpen size={15}/> 8 learning stages</span><span><Activity size={15}/> Practical-first</span><span><Gauge size={15}/> Beginner friendly</span></div>
-              <button className="primary-button" onClick={() => {setStarted(true); setActive("Academy");}}>{started ? "Continue learning" : "Enter the academy"} <ArrowRight size={17}/></button>
+              <Link className="primary-button" href="/academy">{started ? "Continue learning" : "Enter the academy"} <ArrowRight size={17}/></Link>
             </div>
             <div className="hero-art" aria-hidden="true">
               <div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="orbit orbit-three"/>
@@ -95,7 +94,7 @@ export default function Home() {
             <div className="hero-index">01 <span>/</span> 08</div>
           </section>
 
-          <div className="section-heading"><div><div className="eyebrow">YOUR PROGRESS</div><h3>A little progress, every day.</h3></div><button className="text-button" onClick={() => setActive("Academy")}>View learning path <ArrowRight size={15}/></button></div>
+          <div className="section-heading"><div><div className="eyebrow">YOUR PROGRESS</div><h3>A little progress, every day.</h3></div><Link className="text-button" href="/academy">View learning path <ArrowRight size={15}/></Link></div>
           <div className="stats-grid">
             <article className="stat-card"><div className="stat-top"><span className="stat-icon blue"><Zap size={17}/></span><span className="stat-caption">TOTAL EXPERIENCE</span></div><div className="stat-value">000 <small>XP</small></div><div className="stat-foot"><span>Earn XP as you learn</span><ArrowDownRight size={15}/></div></article>
             <article className="stat-card"><div className="stat-top"><span className="stat-icon orange"><Flame size={17}/></span><span className="stat-caption">LEARNING STREAK</span></div><div className="stat-value">0 <small>days</small></div><div className="stat-foot"><span>Start your first streak</span><span className="muted">—</span></div></article>
@@ -107,13 +106,13 @@ export default function Home() {
             <section className="panel learning-panel">
               <div className="panel-heading"><div><div className="eyebrow">PICK UP WHERE YOU LEFT OFF</div><h3>Next in your pathway</h3></div><span className="stage-count">STAGE 01 / 08</span></div>
               <div className="path-progress"><div className="path-progress-fill"/></div>
-              <div className="lesson-list">{lessons.map((lesson, index) => <div className={`lesson-row ${index > 0 ? "lesson-locked" : ""}`} key={lesson.number}><div className="lesson-number">{lesson.number}</div><div className="lesson-info"><strong>{lesson.title}</strong><span>{lesson.detail}</span></div><span className="lesson-time">{lesson.duration}</span>{index === 0 ? <button className="lesson-play" onClick={() => {setStarted(true);setActive("Academy");}} aria-label="Start lesson"><Play size={14} fill="currentColor"/></button> : <LockKeyhole className="lock-icon" size={16}/>}</div>)}</div>
+              <div className="lesson-list">{lessons.map((lesson, index) => <div className={`lesson-row ${index > 0 ? "lesson-locked" : ""}`} key={lesson.number}><div className="lesson-number">{lesson.number}</div><div className="lesson-info"><strong>{lesson.title}</strong><span>{lesson.detail}</span></div><span className="lesson-time">{lesson.duration}</span>{index === 0 ? <Link className="lesson-play" href="/academy/python-foundations" aria-label="Start lesson"><Play size={14} fill="currentColor"/></Link> : <LockKeyhole className="lock-icon" size={16}/>}</div>)}</div>
               <button className="panel-link" onClick={() => setActive("Academy")}>Explore the full pathway <ArrowRight size={15}/></button>
             </section>
             <section className="panel focus-panel">
               <div className="panel-heading"><div><div className="eyebrow">YOUR DAILY FOCUS</div><h3>Make today count.</h3></div><div className="focus-symbol"><Compass size={19}/></div></div>
               <div className="focus-visual"><div className="focus-ring"><span>01</span><small>STEP</small></div><div className="focus-copy"><strong>One concept.<br/>One practical.</strong><span>Small, consistent progress builds real skill.</span></div></div>
-              <div className="focus-footer"><span><Command size={14}/> 20–30 MIN SESSION</span><button onClick={() => setActive("Academy")}>Begin <ArrowRight size={14}/></button></div>
+              <div className="focus-footer"><span><Command size={14}/> 20–30 MIN SESSION</span><Link href="/academy">Begin <ArrowRight size={14}/></Link></div>
             </section>
           </div>
 
