@@ -361,3 +361,22 @@
 .route-ready{color:#9ee5c0;border-color:#4db98745;background:#23835720}
 .generation-task-more{margin:2px 0 0;color:#aab6ce;font-size:9px;line-height:1.6}
 @media(max-width:560px){.generation-task-list{padding:10px}.generation-task-row{align-items:flex-start;flex-direction:column;gap:7px}.generation-task-heading{gap:7px}}
+
+/* Secure provider connection controls */
+.provider-setup-guide{margin:16px 0 20px;background:linear-gradient(110deg,rgba(69,84,156,.17),rgba(123,72,155,.12));border-color:rgba(151,140,255,.22)}
+.provider-setup-guide .provider-explainer-icon{font-size:12px;font-weight:800;color:#c7bcff}
+.provider-credential-panel{display:grid;gap:10px;margin:15px 0;padding:15px;border:1px solid rgba(123,145,230,.28);border-radius:12px;background:linear-gradient(145deg,rgba(36,48,91,.28),rgba(20,28,50,.5))}
+.provider-credential-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.provider-credential-heading strong{color:#e8eaff;font:700 11px Manrope}
+.provider-credential-panel p{margin:0;color:#9daac2;font-size:9px;line-height:1.65}
+.provider-endpoint{color:#aeb9d5;font-size:8px;overflow-wrap:anywhere}
+.provider-credential-panel label{display:block;margin:2px 0 -4px;color:#cbd5ea;font-size:9px;font-weight:700}
+.provider-credential-panel input,.provider-credential-panel select{width:100%;min-width:0;background:#0a1220;border:1px solid #344563;border-radius:7px;color:#f0f3ff;padding:10px 11px;font-size:10px;outline:none}
+.provider-credential-panel input:focus,.provider-credential-panel select:focus{border-color:#8c9bff;box-shadow:0 0 0 3px #8291ff1c}
+.provider-credential-panel button{width:100%;justify-content:center}
+.provider-safe-note{color:#8ed9b9;font-size:8px;line-height:1.6}
+.provider-account-row .account-copy small{overflow-wrap:anywhere}
+.provider-account-row .account-status{white-space:nowrap}
+.provider-account-row .text-action{white-space:nowrap}
+.provider-actions button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){.provider-credential-panel{padding:12px}.provider-credential-heading{align-items:flex-start;flex-direction:column}.provider-account-row{flex-wrap:wrap}.provider-account-row .account-copy{flex:1 1 calc(100% - 45px)}}
