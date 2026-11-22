@@ -170,7 +170,7 @@ Deno.serve(async (req: Request) => {
     if (action === "continuity" && (!Array.isArray(result.characters) || !Array.isArray(result.locations) || !Array.isArray(result.continuity_rules) || typeof result.master_visual_prompt !== "string")) throw new Error("The continuity bible response was incomplete. Please retry.");
     if (action === "audio" && (typeof result.voiceover_required !== "boolean" || !Array.isArray(result.voice_cast) || !Array.isArray(result.dialogue_cues) || !Array.isArray(result.music_cues) || !Array.isArray(result.sound_effects) || !Array.isArray(result.ambience) || !Array.isArray(result.mixing_guidelines))) throw new Error("The audio plan response was incomplete. Please retry.");
 
-    const nextMetadata = action === "analyze"
+    const creativeMetadata = action === "analyze"
       ? { ...metadata, project_analysis: result, concept_options: null, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, storyboard: null, storyboard_approved: false, continuity_bible: null, continuity_approved: false, audio_plan: null, audio_approved: false, creative_stage: "analysis_complete" }
       : action === "concepts"
         ? { ...metadata, concept_options: result.concepts, selected_concept: null, script_draft: null, refined_script: null, approved_script: null, storyboard: null, storyboard_approved: false, continuity_bible: null, continuity_approved: false, audio_plan: null, audio_approved: false, creative_stage: "awaiting_concept_selection" }
@@ -183,6 +183,7 @@ Deno.serve(async (req: Request) => {
               : action === "continuity"
                 ? { ...metadata, continuity_bible: result, continuity_approved: false, audio_plan: null, audio_approved: false, creative_stage: "continuity_ready" }
                 : { ...metadata, audio_plan: result, audio_approved: false, creative_stage: "audio_ready" };
+    const nextMetadata = { ...creativeMetadata, production_route: null, production_route_approved: false, generation_manifest: null, generation_manifest_status: null };
 
     const { error: saveError } = await supabase.from("projects")
       .update({ metadata: nextMetadata, updated_at: new Date().toISOString() })
