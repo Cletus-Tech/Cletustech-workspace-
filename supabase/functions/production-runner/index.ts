@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const routes = route.routes as JsonRecord[];
-  const routeByCategory = new Map(routes.map(item => [String(item.category ?? ""), item]));
+  const routeByCategory = new Map<string, JsonRecord>();\n  for (const item of routes) routeByCategory.set(String(item.category ?? ""), item);
   const requiredCategories = ["image", "video", "editing"];
   const audioPlan = metadata.audio_plan && typeof metadata.audio_plan === "object"
     ? metadata.audio_plan as JsonRecord : {};
