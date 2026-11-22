@@ -42,7 +42,7 @@ export default function CodeStudioPage() {
   function runCode() {
     if (!workerRef.current || status === "running" || status === "loading") return;
     setOutput([]);
-    setStatus("loading");
+    setStatus("running");
     workerRef.current.postMessage({ type: "run", code });
   }
 
