@@ -117,7 +117,7 @@ async function verifyChatModel(baseUrl: string, apiKey: string, modelId: string)
 }
 
 function providerHost(websiteUrl: string | null) {
-  try { return websiteUrl ? new URL(websiteUrl).hostname.toLowerCase().replace(/^www\\./, "") : ""; }
+  try { return websiteUrl ? new URL(websiteUrl).hostname.toLowerCase().replace(/^www\./, "") : ""; }
   catch { return ""; }
 }
 
