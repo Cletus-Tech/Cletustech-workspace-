@@ -369,7 +369,29 @@ export default function ProjectWorkspacePage() {
     await load();
   }
 
-  async function prepareGenerationManifest() {\n    if (!project || !routeApproved) return;\n    setRunnerBusy(true); setError(""); setNotice("");\n    const { data, error: invokeError } = await supabase.functions.invoke("production-runner", { body: { project_id: project.id, action: "prepare" } });\n    setRunnerBusy(false);\n    if (invokeError) {\n      let message = invokeError.message;\n      const context = (invokeError as unknown as { context?: unknown }).context;\n      if (context instanceof Response) {\n        try { const detail = await context.clone().json(); if (typeof detail.error === "string") message = detail.error; }\n        catch { /* Keep the SDK error when no structured response is available. */ }\n      }\n      setError(message); return;\n    }\n    if (data?.error) { setError(String(data.error)); return; }\n    if (!data?.manifest || typeof data.manifest !== "object") { setError("The Generation Planner returned no execution manifest."); return; }\n    setGenerationManifest(data.manifest as Record<string, unknown>);\n    const summary = data.manifest.summary && typeof data.manifest.summary === "object" ? data.manifest.summary as Record<string, unknown> : {};\n    setNotice("Generation manifest prepared: " + String(summary.scenes ?? 0) + " scenes and " + String(summary.planned_tasks ?? 0) + " planned tasks. Execution remains paused until provider adapters and a worker are ready.");\n    await load();\n  }\n\n  async function approveProductionRoute() {
+  async function prepareGenerationManifest() {
+    if (!project || !routeApproved) return;
+    setRunnerBusy(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("production-runner", { body: { project_id: project.id, action: "prepare" } });
+    setRunnerBusy(false);
+    if (invokeError) {
+      let message = invokeError.message;
+      const context = (invokeError as unknown as { context?: unknown }).context;
+      if (context instanceof Response) {
+        try { const detail = await context.clone().json(); if (typeof detail.error === "string") message = detail.error; }
+        catch { /* Keep the SDK error when no structured response is available. */ }
+      }
+      setError(message); return;
+    }
+    if (data?.error) { setError(String(data.error)); return; }
+    if (!data?.manifest || typeof data.manifest !== "object") { setError("The Generation Planner returned no execution manifest."); return; }
+    setGenerationManifest(data.manifest as Record<string, unknown>);
+    const summary = data.manifest.summary && typeof data.manifest.summary === "object" ? data.manifest.summary as Record<string, unknown> : {};
+    setNotice("Generation manifest prepared: " + String(summary.scenes ?? 0) + " scenes and " + String(summary.planned_tasks ?? 0) + " planned tasks. Execution remains paused until provider adapters and a worker are ready.");
+    await load();
+  }
+
+  async function approveProductionRoute() {
     if (!project || !user || !productionRoute) return;
     setSaving(true); setError(""); setNotice("");
     const metadata = { ...(project.metadata ?? {}), production_route_approved: true, creative_stage: "provider_routing_approved" };
@@ -639,7 +661,13 @@ export default function ProjectWorkspacePage() {
             </div>
             <div className="script-approval-row"><span>{audioApproved ? "Audio plan approved and saved to this project." : "Review the voice, dialogue, music and sound plan before authorising provider routing."}</span><button className="primary-button" onClick={() => void approveAudioPlan()} disabled={saving || audioApproved}>{saving ? "Saving approval…" : audioApproved ? "Audio plan approved ✓" : "Approve audio plan & continue →"}</button></div>
           </div>}
-          {generationManifest && <div className="production-route-result generation-manifest-result">\n            <div className="storyboard-heading"><div><span className="section-kicker">GENERATION PLANNER · EXECUTION MANIFEST</span><h3>Scene-by-scene production tasks</h3><p>Approved shots have been translated into a durable task plan. This is not a generation run.</p></div><span>{String(generationManifest.manifest_status ?? "PREPARED").replaceAll("_"," ").toUpperCase()}</span></div>\n            <div className="route-summary-grid">{generationManifest.summary && typeof generationManifest.summary === "object" && Object.entries(generationManifest.summary as Record<string, unknown>).map(([key,value])=><div key={key}><small>{key.replaceAll("_"," ").toUpperCase()}</small><strong>{String(value)}</strong></div>)}</div>\n            <div className="route-list">{Array.isArray(generationManifest.departments) && (generationManifest.departments as Record<string, unknown>[]).map((department,index)=><article className="route-department" key={String(department.category ?? index)}><div className="route-department-icon">{String(department.category ?? "AI").slice(0,2).toUpperCase()}</div><div className="route-department-main"><div className="route-department-heading"><div><strong>{String(department.title ?? department.category ?? "Department")}</strong><p>{String(department.provider ?? "Unassigned")}</p></div><span className={"route-status " + (department.execution_ready ? "route-ready" : "route-provider_not_registered")}>{department.execution_ready ? "Adapter verified" : "Adapter required"}</span></div><p className="route-next-action">{String(department.blocker ?? "Ready for worker review.")}</p></div></article>)}</div>\n            <div className="route-safety-note"><strong>Execution state</strong><p>{String(generationManifest.safety_note ?? "No media generation has started.")}</p><p>{String(generationManifest.next_step ?? "The worker and verified provider adapters are the next requirements.")}</p></div>\n          </div>}\n          {productionRoute && <div className="production-route-result">
+          {generationManifest && <div className="production-route-result generation-manifest-result">
+            <div className="storyboard-heading"><div><span className="section-kicker">GENERATION PLANNER · EXECUTION MANIFEST</span><h3>Scene-by-scene production tasks</h3><p>Approved shots have been translated into a durable task plan. This is not a generation run.</p></div><span>{String(generationManifest.manifest_status ?? "PREPARED").replaceAll("_"," ").toUpperCase()}</span></div>
+            <div className="route-summary-grid">{generationManifest.summary && typeof generationManifest.summary === "object" && Object.entries(generationManifest.summary as Record<string, unknown>).map(([key,value])=><div key={key}><small>{key.replaceAll("_"," ").toUpperCase()}</small><strong>{String(value)}</strong></div>)}</div>
+            <div className="route-list">{Array.isArray(generationManifest.departments) && (generationManifest.departments as Record<string, unknown>[]).map((department,index)=><article className="route-department" key={String(department.category ?? index)}><div className="route-department-icon">{String(department.category ?? "AI").slice(0,2).toUpperCase()}</div><div className="route-department-main"><div className="route-department-heading"><div><strong>{String(department.title ?? department.category ?? "Department")}</strong><p>{String(department.provider ?? "Unassigned")}</p></div><span className={"route-status " + (department.execution_ready ? "route-ready" : "route-provider_not_registered")}>{department.execution_ready ? "Adapter verified" : "Adapter required"}</span></div><p className="route-next-action">{String(department.blocker ?? "Ready for worker review.")}</p></div></article>)}</div>
+            <div className="route-safety-note"><strong>Execution state</strong><p>{String(generationManifest.safety_note ?? "No media generation has started.")}</p><p>{String(generationManifest.next_step ?? "The worker and verified provider adapters are the next requirements.")}</p></div>
+          </div>}
+          {productionRoute && <div className="production-route-result">
             <div className="storyboard-heading"><div><span className="section-kicker">PRODUCTION DIRECTOR · ROUTING ASSESSMENT</span><h3>Provider assignment & readiness</h3><p>This assessment checks your private provider registry. It does not sign in to external services or generate media.</p></div><span>{routeApproved ? "APPROVED" : "REVIEW REQUIRED"}</span></div>
             <div className="route-summary-grid">
               {Boolean(productionRoute.summary) && typeof productionRoute.summary === "object" && Object.entries(productionRoute.summary as Record<string, unknown>).map(([key,value])=><div key={key}><small>{key.replaceAll("_"," ").toUpperCase()}</small><strong>{String(value)}</strong></div>)}
