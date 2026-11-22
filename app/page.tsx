@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Activity, ArrowDownRight, ArrowRight, Award, BookOpen, Braces, Check,
   ChevronRight, CircleHelp, Code2, Command, Compass, Flame, Gauge, GraduationCap,
@@ -33,6 +34,23 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [started, setStarted] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user.email ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function signOut() {
+    const supabase = getSupabaseBrowserClient();
+    if (supabase) await supabase.auth.signOut();
+    setUserEmail(null);
+  }
 
   return (
     <main className="app-shell">
@@ -56,7 +74,7 @@ export default function Home() {
           </div>
           <button className="nav-item"><Settings2 size={18}/><span>Settings</span></button>
           <div className="profile-mini">
-            <div className="avatar">CU</div><div className="profile-copy"><strong>My profile</strong><span>Foundation learner</span></div><ChevronRight size={15}/>
+            <div className="avatar">{userEmail ? userEmail.slice(0,2).toUpperCase() : "CU"}</div><div className="profile-copy"><strong>{userEmail || "My profile"}</strong><span>{userEmail ? "Signed-in learner" : "Foundation learner"}</span></div><ChevronRight size={15}/>
           </div>
         </div>
       </aside>
@@ -67,7 +85,7 @@ export default function Home() {
         <header className="topbar">
           <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu size={20}/></button>
           <div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div>
-          <div className="top-actions"><Link href="/login" className="auth-entry">Sign in</Link><div className="search-box"><Search size={16}/><span>Search lessons, topics...</span><kbd>⌘ K</kbd></div><button className="help-button" aria-label="Help"><CircleHelp size={18}/></button><div className="top-avatar">CU</div></div>
+          <div className="top-actions">{userEmail ? <><span className="signed-in-email">{userEmail}</span><button className="auth-entry" onClick={signOut}>Sign out</button></> : <Link href="/login" className="auth-entry">Sign in</Link>}<div className="search-box"><Search size={16}/><span>Search lessons, topics...</span><kbd>⌘ K</kbd></div><button className="help-button" aria-label="Help"><CircleHelp size={18}/></button><div className="top-avatar">CU</div></div>
         </header>
 
         <div className="content-wrap">

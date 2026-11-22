@@ -63,3 +63,6 @@
 .auth-error,.auth-message{font-size:10px;line-height:1.6;padding:10px;border-radius:6px}.auth-error{color:#ffb6a3;background:rgba(158,58,47,.12);border:1px solid rgba(218,103,84,.22)}.auth-message{color:#a5dfbd;background:rgba(50,128,84,.12);border:1px solid rgba(94,184,128,.22)}
 .auth-footnote{font-size:9px;line-height:1.7;color:#71839b;margin:20px 0 0}.auth-footer{text-align:center;color:#52647c;font:8px 'DM Mono',monospace;letter-spacing:1.5px}
 @media(max-width:520px){.auth-card{padding:25px 20px}.auth-screen{padding:20px 15px}}
+
+.signed-in-email{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#91a5c0;font-size:9px}
+@media(max-width:720px){.signed-in-email{display:none}}
