@@ -40,6 +40,7 @@ const stageDetails: Record<string, string> = {
   storyboard: "Turn the approved screenplay into scene-by-scene shots for review.",
   continuity: "Lock character, wardrobe, location, prop, lighting and camera consistency.",
   audio: "Prepare voiceover, dialogue, music and sound requirements.",
+  production_director: "Assess registered providers and prepare a truthful routing plan.",
   generation: "Create approved visual and audio assets with connected providers.",
   assembly: "Edit, synchronise, review and export the final production."
 };
@@ -86,6 +87,9 @@ export default function ProjectWorkspacePage() {
   const [continuityApproved, setContinuityApproved] = useState(false);
   const [audioPlan, setAudioPlan] = useState<Record<string, unknown> | null>(null);
   const [audioApproved, setAudioApproved] = useState(false);
+  const [productionRoute, setProductionRoute] = useState<Record<string, unknown> | null>(null);
+  const [routeApproved, setRouteApproved] = useState(false);
+  const [routeBusy, setRouteBusy] = useState(false);
   const [selectedConceptId, setSelectedConceptId] = useState("");
 
   const load = useCallback(async () => {
@@ -115,6 +119,8 @@ export default function ProjectWorkspacePage() {
       setContinuityApproved(Boolean(savedMetadata.continuity_approved));
       setAudioPlan(savedMetadata.audio_plan && typeof savedMetadata.audio_plan === "object" ? savedMetadata.audio_plan as Record<string, unknown> : null);
       setAudioApproved(Boolean(savedMetadata.audio_approved));
+      setProductionRoute(savedMetadata.production_route && typeof savedMetadata.production_route === "object" ? savedMetadata.production_route as Record<string, unknown> : null);
+      setRouteApproved(Boolean(savedMetadata.production_route_approved));
       const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
       setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
@@ -338,6 +344,58 @@ export default function ProjectWorkspacePage() {
     await load();
   }
 
+  async function runProductionDirector() {
+    if (!project || !audioApproved) return;
+    setRouteBusy(true); setError(""); setNotice("");
+    const { data, error: invokeError } = await supabase.functions.invoke("production-director", { body: { project_id: project.id, action: "plan" } });
+    setRouteBusy(false);
+    if (invokeError) {
+      let message = invokeError.message;
+      const context = (invokeError as unknown as { context?: unknown }).context;
+      if (context instanceof Response) {
+        try { const detail = await context.clone().json(); if (typeof detail.error === "string") message = detail.error; }
+        catch { /* Preserve the SDK error if no structured response is available. */ }
+      }
+      setError(message); return;
+    }
+    if (data?.error) { setError(String(data.error)); return; }
+    if (!data?.route_plan || typeof data.route_plan !== "object") { setError("The Production Director returned no routing assessment."); return; }
+    setProductionRoute(data.route_plan as Record<string, unknown>);
+    setRouteApproved(false);
+    setNotice("Provider routing assessment is ready. Review every department and its connection status.");
+    await load();
+  }
+
+  async function approveProductionRoute() {
+    if (!project || !user || !productionRoute) return;
+    setSaving(true); setError(""); setNotice("");
+    const metadata = { ...(project.metadata ?? {}), production_route_approved: true, creative_stage: "provider_routing_approved" };
+    const { error: metadataError } = await supabase.from("projects").update({ metadata, updated_at: new Date().toISOString() }).eq("id", project.id).eq("owner_id", user.id);
+    if (metadataError) { setSaving(false); setError(metadataError.message); return; }
+    const workflowJob = jobs.find(job => job.job_type === "idea_to_video");
+    if (workflowJob) {
+      const { error: routeError } = await supabase.from("production_steps").update({
+        status: "succeeded", output_payload: productionRoute, updated_at: new Date().toISOString()
+      }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "production_director");
+      const { error: generationError } = await supabase.from("production_steps").update({
+        status: "pending", input_payload: { instruction: "Generation is blocked until compatible provider execution adapters are installed and verified.", routing_approved: true }, updated_at: new Date().toISOString()
+      }).eq("job_id", workflowJob.id).eq("owner_id", user.id).eq("stage", "generation");
+      const { error: jobError } = await supabase.from("production_jobs").update({
+        status: "waiting_for_approval",
+        output_payload: { approved_production_route: productionRoute, next_stage: "provider_adapter_setup", execution_ready: false },
+        updated_at: new Date().toISOString()
+      }).eq("id", workflowJob.id).eq("owner_id", user.id);
+      if (routeError || generationError || jobError) {
+        setSaving(false);
+        setError("The routing approval was saved, but the production hand-off needs attention: " + (routeError?.message || generationError?.message || jobError?.message));
+        await load(); return;
+      }
+    }
+    setSaving(false); setRouteApproved(true);
+    setNotice("Provider routing assessment approved. Media generation remains paused until compatible provider adapters are installed and tested.");
+    await load();
+  }
+
   async function saveBrief(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!project) return;
@@ -510,6 +568,7 @@ export default function ProjectWorkspacePage() {
             <div className="director-action-card"><span className="director-number">05</span><div><strong>Storyboard Director</strong><p>Turn the approved screenplay into scene cards, shot lists, camera movement and visual prompts.</p><button className="secondary-button" onClick={() => void runCreativeStage("storyboard")} disabled={!scriptApproved || saving}>{saving ? "Developing storyboard…" : storyboard ? "Regenerate storyboard" : "Create storyboard →"}</button></div><span className="director-state">{storyboardApproved ? "Storyboard approved" : storyboard ? "Review required" : scriptApproved ? "Ready to develop" : "After screenplay approval"}</span></div>
             <div className="director-action-card"><span className="director-number">06</span><div><strong>Continuity Director</strong><p>Build stable character, wardrobe, location, prop, lighting, colour and camera references.</p><button className="secondary-button" onClick={() => void runCreativeStage("continuity")} disabled={!storyboardApproved || saving}>{saving ? "Building continuity…" : continuityBible ? "Regenerate continuity bible" : "Build continuity bible →"}</button></div><span className="director-state">{continuityApproved ? "Continuity approved" : continuityBible ? "Review required" : storyboardApproved ? "Ready to develop" : "After storyboard approval"}</span></div>
             <div className="director-action-card"><span className="director-number">07</span><div><strong>Audio Director</strong><p>Decide on narration, map character dialogue, and prepare original music, ambience and sound-effect cues.</p><button className="secondary-button" onClick={() => void runCreativeStage("audio")} disabled={!continuityApproved || saving}>{saving ? "Preparing audio plan…" : audioPlan ? "Regenerate audio plan" : "Prepare audio plan →"}</button></div><span className="director-state">{audioApproved ? "Audio approved" : audioPlan ? "Review required" : continuityApproved ? "Ready to develop" : "After continuity approval"}</span></div>
+            <div className="director-action-card"><span className="director-number">08</span><div><strong>Production Director</strong><p>Match every production department to registered providers, identify missing connections and prepare the execution hand-off.</p><button className="secondary-button" onClick={() => void runProductionDirector()} disabled={!audioApproved || routeBusy || saving}>{routeBusy ? "Assessing providers…" : productionRoute ? "Reassess provider routing" : "Build provider routing plan →"}</button></div><span className="director-state">{routeApproved ? "Routing approved" : productionRoute ? "Review routing" : audioApproved ? "Ready to assess" : "After audio approval"}</span></div>
           </div>
           {projectAnalysis && <div className="analysis-result">
             <div className="analysis-result-top"><span>PROJECT ANALYSIS</span><span>AI CREATIVE BRIEF</span></div>
@@ -576,6 +635,28 @@ export default function ProjectWorkspacePage() {
               {Array.isArray(audioPlan.delivery_specifications) && <div><strong>DELIVERY SPECIFICATIONS</strong><ul>{(audioPlan.delivery_specifications as string[]).map((item,index)=><li key={index}>{item}</li>)}</ul></div>}
             </div>
             <div className="script-approval-row"><span>{audioApproved ? "Audio plan approved and saved to this project." : "Review the voice, dialogue, music and sound plan before authorising provider routing."}</span><button className="primary-button" onClick={() => void approveAudioPlan()} disabled={saving || audioApproved}>{saving ? "Saving approval…" : audioApproved ? "Audio plan approved ✓" : "Approve audio plan & continue →"}</button></div>
+          </div>}
+          {productionRoute && <div className="production-route-result">
+            <div className="storyboard-heading"><div><span className="section-kicker">PRODUCTION DIRECTOR · ROUTING ASSESSMENT</span><h3>Provider assignment & readiness</h3><p>This assessment checks your private provider registry. It does not sign in to external services or generate media.</p></div><span>{routeApproved ? "APPROVED" : "REVIEW REQUIRED"}</span></div>
+            <div className="route-summary-grid">
+              {productionRoute.summary && typeof productionRoute.summary === "object" && Object.entries(productionRoute.summary as Record<string, unknown>).map(([key,value])=><div key={key}><small>{key.replaceAll("_"," ").toUpperCase()}</small><strong>{String(value)}</strong></div>)}
+            </div>
+            <div className="route-list">
+              {Array.isArray(productionRoute.routes) && (productionRoute.routes as Record<string, unknown>[]).map((route,index)=>{
+                const assigned=route.assigned_provider && typeof route.assigned_provider==="object" ? route.assigned_provider as Record<string,unknown> : null;
+                const status=String(route.route_status ?? "unknown");
+                const statusLabel=status==="provider_not_registered"?"Provider not registered":status==="provider_account_required"?"Account profile required":status==="account_connection_required"?"Connection required":status==="account_marked_connected_adapter_missing"?"Adapter not integrated":"Needs review";
+                return <article className="route-department" key={String(route.category ?? index)}>
+                  <div className="route-department-icon">{String(route.category ?? "AI").slice(0,2).toUpperCase()}</div>
+                  <div className="route-department-main"><div className="route-department-heading"><div><strong>{String(route.title ?? route.category ?? "Department")}</strong><p>{String(route.purpose ?? "")}</p></div><span className={"route-status route-"+status}>{statusLabel}</span></div>
+                    {assigned ? <div className="route-assigned"><strong>{String(assigned.name ?? "Provider")}</strong><small>{String(assigned.connection_type ?? "connection type unknown").replaceAll("_"," ")} · provider status: {String(assigned.registry_connection_status ?? "unknown").replaceAll("_"," ")}</small><small>Account: {String(assigned.account_label ?? "No account profile")} · {String(assigned.account_status ?? "unknown").replaceAll("_"," ")}</small>{assigned.website_url && <a href={String(assigned.website_url)} target="_blank" rel="noreferrer">Open provider website ↗</a>}</div> : <div className="route-assigned route-unassigned"><strong>No provider registered for this department</strong><Link href="/tools">Open AI tool manager to register one ↗</Link></div>}
+                    <p className="route-next-action">{String(route.next_action ?? "")}</p>
+                  </div>
+                </article>;
+              })}
+            </div>
+            <div className="route-safety-note"><strong>Execution safety</strong><p>{String(productionRoute.safety_note ?? "No external provider has been called.")}</p><p>Even a provider marked connected is not yet executable until its official adapter has been implemented and tested.</p></div>
+            <div className="script-approval-row"><span>{routeApproved ? "Routing assessment approved. Generation is still safely paused pending provider adapters." : "Approve this routing assessment to record the hand-off. This does not start generation."}</span><button className="primary-button" onClick={() => void approveProductionRoute()} disabled={saving || routeApproved}>{saving ? "Saving approval…" : routeApproved ? "Routing approved ✓" : "Approve routing assessment →"}</button></div>
           </div>}
           <p className="director-footnote">AI processing runs securely on the server. Your provider key is never placed in the browser or saved in project metadata.</p>
         </section>
