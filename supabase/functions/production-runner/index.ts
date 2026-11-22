@@ -159,6 +159,16 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  addTask({
+    task_key: `${project.id}:assembly:final-cut`,
+    task_type: "final_assembly",
+    department: "editing",
+    scene_number: null,
+    shot_number: null,
+    title: "Final edit and assembly",
+    prompt: "Assemble the approved scene clips in storyboard order. Preserve approved continuity, pacing, transitions, dialogue timing, audio mix and target aspect ratio.",
+  }, "editing");
+
   const addCueTasks = (key: string, category: string, taskType: string) => {
     const cues = Array.isArray(audioPlan[key]) ? audioPlan[key] as JsonRecord[] : [];
     cues.forEach((cue, index) => {
