@@ -275,7 +275,9 @@ Deno.serve(async (req: Request) => {
         p_api_base_url: mediaAdapter.baseUrl,
         p_model_id: modelId,
         p_adapter_key: mediaAdapter.adapterKey,
-        p_verified_models: [modelId],
+        // The provider account is authenticated, but this media model ID has not
+        // been executed yet; keep the verified-model list empty until a worker test.
+        p_verified_models: [],
       });
       if (!stored?.ok) throw new Error("The provider credential could not be saved securely.");
       return reply({
