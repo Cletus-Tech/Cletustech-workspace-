@@ -162,7 +162,7 @@ export default function ToolsPage() {
   function openAccountForm(provider: Provider, account?: Account) {
     setAccountProvider(provider); setEditingAccount(account ?? null);
     setAccountLabel(account?.label ?? ""); setExternalLabel(account?.external_account_label ?? "");
-    setAccountMethod(account?.connection_method ?? "manual"); setAccountNotes(account?.notes ?? "");
+    setAccountMethod(account?.connection_method ?? (["script","general","image","video","voice","music"].includes(provider.category) ? "api_key_reference" : "manual")); setAccountNotes(account?.notes ?? "");
     setApiKey("");
     const savedModels = Array.isArray(account?.verified_models) ? account.verified_models : [];
     setAvailableModels(savedModels);
