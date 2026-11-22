@@ -91,6 +91,7 @@ export default function ProjectWorkspacePage() {
   const [routeApproved, setRouteApproved] = useState(false);
   const [routeBusy, setRouteBusy] = useState(false);
   const [generationManifest, setGenerationManifest] = useState<Record<string, unknown> | null>(null);
+  const [taskQueue, setTaskQueue] = useState<Record<string, unknown>[]>([]);
   const [runnerBusy, setRunnerBusy] = useState(false);
   const [selectedConceptId, setSelectedConceptId] = useState("");
 
@@ -124,6 +125,15 @@ export default function ProjectWorkspacePage() {
       setProductionRoute(savedMetadata.production_route && typeof savedMetadata.production_route === "object" ? savedMetadata.production_route as Record<string, unknown> : null);
       setRouteApproved(Boolean(savedMetadata.production_route_approved));
       setGenerationManifest(savedMetadata.generation_manifest && typeof savedMetadata.generation_manifest === "object" ? savedMetadata.generation_manifest as Record<string, unknown> : null);
+      const savedManifest = savedMetadata.generation_manifest && typeof savedMetadata.generation_manifest === "object" ? savedMetadata.generation_manifest as Record<string, unknown> : null;
+      const savedManifestId = typeof savedManifest?.manifest_id === "string" ? savedManifest.manifest_id : null;
+      if (savedManifestId) {
+        const { data: taskRows, error: taskError } = await supabase.from("production_tasks")
+          .select("id,task_key,task_type,department,scene_number,shot_number,title,status,attempts,max_attempts,last_error,created_at")
+          .eq("project_id", projectId).eq("manifest_id", savedManifestId).order("created_at", { ascending: true });
+        if (taskError) setError(taskError.message);
+        else setTaskQueue((taskRows ?? []) as Record<string, unknown>[]);
+      } else setTaskQueue([]);
       const savedSelection = savedMetadata.selected_concept && typeof savedMetadata.selected_concept === "object" ? savedMetadata.selected_concept as { id?: string } : null;
       setSelectedConceptId(savedSelection?.id ?? "");
       setDescription(p.description ?? "");
@@ -667,11 +677,11 @@ export default function ProjectWorkspacePage() {
             <div className="route-summary-grid">{Boolean(generationManifest.summary) && typeof generationManifest.summary === "object" && Object.entries(generationManifest.summary as Record<string, unknown>).map(([key,value])=><div key={key}><small>{key.replaceAll("_"," ").toUpperCase()}</small><strong>{String(value)}</strong></div>)}</div>
             {Array.isArray(generationManifest.tasks) && <div className="generation-task-list">
               <div className="generation-task-heading"><div><strong>Execution queue preview</strong><p>Scene-level work items saved to the private task queue</p></div><span>{String(generationManifest.summary && typeof generationManifest.summary === "object" ? (generationManifest.summary as Record<string, unknown>).planned_tasks ?? 0 : 0)} tasks</span></div>
-              {(generationManifest.tasks as Record<string, unknown>[]).slice(0,10).map((task,index)=><article className="generation-task-row" key={String(task.task_key ?? index)}>
+              {(taskQueue.length ? taskQueue : (generationManifest.tasks as Record<string, unknown>[])).slice(0,10).map((task,index)=><article className="generation-task-row" key={String(task.id ?? task.task_key ?? index)}>
                 <div><strong>{String(task.title ?? task.task_type ?? "Production task")}</strong><p>{String(task.department ?? "production").toUpperCase()} · {task.scene_number ? "Scene " + String(task.scene_number) : "Project-wide"}{task.shot_number ? " · Shot " + String(task.shot_number) : ""}</p></div>
                 <span className={"route-status " + (task.status === "ready_for_worker" ? "route-ready" : "route-provider_not_registered")}>{String(task.status ?? "planned").replaceAll("_"," ")}</span>
               </article>)}
-              {(generationManifest.tasks as Record<string, unknown>[]).length > 10 && <p className="generation-task-more">Showing 10 of {(generationManifest.tasks as Record<string, unknown>[]).length} planned tasks. All tasks are stored in the private production queue.</p>}
+              {(taskQueue.length ? taskQueue : (generationManifest.tasks as Record<string, unknown>[])).length > 10 && <p className="generation-task-more">Showing 10 of {(taskQueue.length ? taskQueue : (generationManifest.tasks as Record<string, unknown>[])).length} saved tasks. Statuses are read from the private production queue.</p>}
             </div>}
             <div className="route-list">{Array.isArray(generationManifest.departments) && (generationManifest.departments as Record<string, unknown>[]).map((department,index)=><article className="route-department" key={String(department.category ?? index)}><div className="route-department-icon">{String(department.category ?? "AI").slice(0,2).toUpperCase()}</div><div className="route-department-main"><div className="route-department-heading"><div><strong>{String(department.title ?? department.category ?? "Department")}</strong><p>{String(department.provider ?? "Unassigned")}</p></div><span className={"route-status " + (department.execution_ready ? "route-ready" : "route-provider_not_registered")}>{department.execution_ready ? "Adapter verified" : "Adapter required"}</span></div><p className="route-next-action">{String(department.blocker ?? "Ready for worker review.")}</p></div></article>)}</div>
             <div className="route-safety-note"><strong>Execution state</strong><p>{String(generationManifest.safety_note ?? "No media generation has started.")}</p><p>{String(generationManifest.next_step ?? "The worker and verified provider adapters are the next requirements.")}</p></div>
