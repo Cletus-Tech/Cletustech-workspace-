@@ -73,13 +73,19 @@ async function verifyProviderKey(baseUrl: string, apiKey: string, providerName: 
   if (new URL(baseUrl).hostname === "openrouter.ai") {
     const keyCheck = await fetch(baseUrl + "/key", {
       method: "GET",
-      headers: { "Authorization": "Bearer " + apiKey, "Accept": "application/json" },
+      headers: { ...providerAuthHeaders(baseUrl, apiKey), "Accept": "application/json" },
       signal: AbortSignal.timeout(12000),
     });
     if (!keyCheck.ok) throw new Error(keyCheck.status === 401 || keyCheck.status === 403
       ? "OpenRouter rejected this API key. Check its status in your OpenRouter account."
       : "OpenRouter key verification failed (HTTP " + keyCheck.status + ").");
   }
+}
+
+function providerAuthHeaders(baseUrl: string, apiKey: string) {
+  return new URL(baseUrl).hostname === "generativelanguage.googleapis.com"
+    ? { "x-goog-api-key": apiKey }
+    : { "Authorization": "Bearer " + apiKey };
 }
 
 async function verifyChatModel(baseUrl: string, apiKey: string, modelId: string) {
@@ -96,7 +102,7 @@ async function verifyChatModel(baseUrl: string, apiKey: string, modelId: string)
   const response = await fetch(baseUrl + "/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer " + apiKey,
+      ...providerAuthHeaders(baseUrl, apiKey),
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
