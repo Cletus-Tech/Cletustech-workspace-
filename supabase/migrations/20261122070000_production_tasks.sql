@@ -30,6 +30,10 @@ create table if not exists public.production_tasks (
   constraint production_tasks_project_task_key_unique unique(project_id, task_key)
 );
 
+-- Keep this migration safe when an earlier partial version of the table exists.
+alter table public.production_tasks
+  add column if not exists manifest_id uuid not null default gen_random_uuid();
+
 create index if not exists production_tasks_owner_project_idx
   on public.production_tasks(owner_id, project_id, created_at);
 create index if not exists production_tasks_worker_queue_idx
@@ -52,6 +56,7 @@ create policy "Owners can create their production tasks"
   on public.production_tasks for insert to authenticated
   with check (
     owner_id = (select auth.uid())
+    and status = 'blocked_by_adapter'
     and exists (
       select 1 from public.projects p
       where p.id = production_tasks.project_id and p.owner_id = (select auth.uid())
@@ -64,15 +69,9 @@ create policy "Owners can create their production tasks"
     )
   );
 
+-- Queue state is system-controlled. Browser clients may read and create
+-- blocked planning records, but cannot claim, complete, retry, or erase work.
 drop policy if exists "Owners can update their production tasks" on public.production_tasks;
-create policy "Owners can update their production tasks"
-  on public.production_tasks for update to authenticated
-  using (owner_id = (select auth.uid()))
-  with check (owner_id = (select auth.uid()));
-
 drop policy if exists "Owners can delete their production tasks" on public.production_tasks;
-create policy "Owners can delete their production tasks"
-  on public.production_tasks for delete to authenticated
-  using (owner_id = (select auth.uid()));
-
-grant select, insert, update, delete on public.production_tasks to authenticated;
+revoke update, delete on public.production_tasks from authenticated;
+grant select, insert on public.production_tasks to authenticated;
