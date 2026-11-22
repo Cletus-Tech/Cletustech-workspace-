@@ -43,6 +43,9 @@ create index if not exists production_tasks_job_idx
   on public.production_tasks(job_id, status);
 create index if not exists production_tasks_manifest_idx
   on public.production_tasks(project_id, manifest_id, created_at);
+create index if not exists production_tasks_result_asset_idx
+  on public.production_tasks(result_asset_id)
+  where result_asset_id is not null;
 
 alter table public.production_tasks enable row level security;
 
