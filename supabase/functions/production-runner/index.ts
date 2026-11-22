@@ -104,6 +104,16 @@ Deno.serve(async (req: Request) => {
       title: String(item?.title ?? category),
       provider: item?.assigned_provider && typeof item.assigned_provider === "object"
         ? String((item.assigned_provider as JsonRecord).name ?? "Unassigned") : "Unassigned",
+      provider_route: item?.assigned_provider && typeof item.assigned_provider === "object"
+        ? {
+            provider_id: (item.assigned_provider as JsonRecord).id ?? null,
+            account_id: (item.assigned_provider as JsonRecord).account_id ?? null,
+            provider_name: (item.assigned_provider as JsonRecord).name ?? null,
+            adapter_key: (item.assigned_provider as JsonRecord).adapter_key ?? null,
+            model_id: (item.assigned_provider as JsonRecord).configured_model ?? null,
+            api_base_url: (item.assigned_provider as JsonRecord).api_base_url ?? null,
+          }
+        : null,
       route_status: status,
       adapter_verified: adapterVerified,
       execution_ready: adapterVerified,
@@ -115,8 +125,10 @@ Deno.serve(async (req: Request) => {
   const canRunDepartment = (category: string) =>
     departmentReadiness.some(item => item.category === category && item.execution_ready);
   const addTask = (task: JsonRecord, category: string) => {
+    const department = departmentReadiness.find(item => item.category === category);
     tasks.push({
       ...task,
+      provider_route: department?.provider_route ?? null,
       status: canRunDepartment(category) ? "ready_for_worker" : "blocked_by_adapter",
       attempts: 0,
       max_attempts: 2,
