@@ -163,3 +163,19 @@ revoke all on function public.clear_default_ai_provider_when_disabled() from pub
 drop trigger if exists ai_provider_disable_clears_default on public.ai_providers;
 create trigger ai_provider_disable_clears_default before update of is_enabled on public.ai_providers
 for each row execute function public.clear_default_ai_provider_when_disabled();
+
+-- Keep the provider registry consistent if an owner removes an account directly.
+create or replace function public.sync_provider_after_account_delete()
+returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  update public.ai_providers p
+  set connection_status=case when exists(select 1 from public.provider_accounts a where a.provider_id=old.provider_id and a.owner_id=old.owner_id and a.status='connected') then 'connected' else 'not_connected' end,
+      is_default=case when exists(select 1 from public.provider_accounts a where a.provider_id=old.provider_id and a.owner_id=old.owner_id and a.status='connected') then p.is_default else false end,
+      updated_at=now()
+  where p.id=old.provider_id and p.owner_id=old.owner_id;
+  return old;
+end; $$;
+revoke all on function public.sync_provider_after_account_delete() from public,anon,authenticated;
+drop trigger if exists provider_account_delete_sync on public.provider_accounts;
+create trigger provider_account_delete_sync after delete on public.provider_accounts
+for each row execute function public.sync_provider_after_account_delete();
