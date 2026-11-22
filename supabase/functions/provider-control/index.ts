@@ -116,6 +116,60 @@ async function verifyChatModel(baseUrl: string, apiKey: string, modelId: string)
   }
 }
 
+function getMediaAdapter(providerName: string, category: string) {
+  const name = providerName.trim().toLowerCase();
+  if (name.includes("runway") && ["image","video","voice","music"].includes(category)) {
+    return { adapterKey: "runway_v1", baseUrl: "https://api.dev.runwayml.com/v1" };
+  }
+  if ((name.includes("fal.ai") || name === "fal") && ["image","video","voice","music"].includes(category)) {
+    return { adapterKey: "fal_queue", baseUrl: "https://queue.fal.run" };
+  }
+  if (name.includes("elevenlabs") && ["voice","music"].includes(category)) {
+    return { adapterKey: "elevenlabs_v1", baseUrl: "https://api.elevenlabs.io" };
+  }
+  return null;
+}
+
+async function verifyMediaProvider(adapterKey: string, apiKey: string, baseUrl: string) {
+  let response: Response;
+  if (adapterKey === "runway_v1") {
+    response = await fetch(baseUrl + "/organization", {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + apiKey, "X-Runway-Version": "2024-11-06", "Accept": "application/json" },
+      signal: AbortSignal.timeout(15000),
+    });
+  } else if (adapterKey === "elevenlabs_v1") {
+    response = await fetch(baseUrl + "/v1/user/subscription", {
+      method: "GET",
+      headers: { "xi-api-key": apiKey, "Accept": "application/json" },
+      signal: AbortSignal.timeout(15000),
+    });
+  } else if (adapterKey === "fal_queue") {
+    // A read-only status lookup against a deliberately nonexistent request checks auth
+    // without submitting a generation or consuming inference credits.
+    response = await fetch(baseUrl + "/fal-ai/flux/dev/requests/00000000-0000-4000-8000-000000000000/status", {
+      method: "GET",
+      headers: { "Authorization": "Key " + apiKey, "Accept": "application/json" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (response.status === 404) return { verified: true, detail: "API key accepted; no generation was submitted." };
+  } else {
+    throw new Error("This media provider adapter is not supported.");
+  }
+  if (!response.ok) {
+    throw new Error(response.status === 401 || response.status === 403
+      ? "The provider rejected this API key. Check the key and its permissions."
+      : "Provider account verification failed (HTTP " + response.status + "). Check account access and try again.");
+  }
+  const payload = await response.json().catch(() => ({}));
+  const detail = adapterKey === "runway_v1"
+    ? "Runway account verified" + (typeof payload?.creditBalance === "number" ? " · credit balance returned" : "")
+    : adapterKey === "elevenlabs_v1"
+      ? "ElevenLabs account verified" + (payload?.tier ? " · " + String(payload.tier) + " plan" : "")
+      : "Provider account verified";
+  return { verified: true, detail };
+}
+
 async function fetchModels(baseUrl: string, apiKey: string, providerName: string) {
   await verifyProviderKey(baseUrl, apiKey, providerName);
   const response = await fetch(baseUrl + "/models", {
@@ -165,7 +219,7 @@ Deno.serve(async (req: Request) => {
   const action = body.action;
   const providerId = body.provider_id;
   const accountId = body.account_id;
-  if (!providerId || !accountId || !["discover_models", "connect", "set_default", "disconnect"].includes(action ?? "")) {
+  if (!providerId || !accountId || !["discover_models", "connect", "connect_media", "set_default", "disconnect"].includes(action ?? "")) {
     return reply({ error: "A provider, account and supported connection action are required." }, 400);
   }
 
@@ -197,8 +251,43 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!provider.is_enabled) return reply({ error: "Enable this provider before connecting it." }, 409);
+
+    if (action === "connect_media") {
+      const mediaAdapter = getMediaAdapter(provider.name, provider.category);
+      if (!mediaAdapter) return reply({
+        error: "No verified image, video, voice or music adapter is available for this provider and category yet.",
+        code: "MEDIA_ADAPTER_UNAVAILABLE",
+      }, 422);
+      const mediaKey = body.api_key?.trim();
+      const modelId = body.model_id?.trim();
+      if (!mediaKey || mediaKey.length < 8 || mediaKey.length > 4096) return reply({ error: "Enter a valid API key." }, 400);
+      if (!modelId || modelId.length > 240 || (mediaAdapter.adapterKey === "fal_queue" && !/^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9._-]*){1,4}$/i.test(modelId))) {
+        return reply({ error: mediaAdapter.adapterKey === "fal_queue"
+          ? "Enter a valid fal model endpoint, such as fal-ai/flux/dev."
+          : "Enter the provider model or endpoint identifier you want this account to use." }, 400);
+      }
+      const check = await verifyMediaProvider(mediaAdapter.adapterKey, mediaKey, mediaAdapter.baseUrl);
+      const stored = await callAdminRpc(supabaseUrl, "store_provider_connection", {
+        p_owner_id: ownerId,
+        p_provider_id: providerId,
+        p_account_id: accountId,
+        p_secret: mediaKey,
+        p_api_base_url: mediaAdapter.baseUrl,
+        p_model_id: modelId,
+        p_adapter_key: mediaAdapter.adapterKey,
+        p_verified_models: [modelId],
+      });
+      if (!stored?.ok) throw new Error("The provider credential could not be saved securely.");
+      return reply({
+        ok: true, action: "connect_media", provider: provider.name, account_id: accountId,
+        model_id: modelId, adapter_key: mediaAdapter.adapterKey, connection_status: "connected",
+        verification: check.detail,
+        execution_note: "The API credential is verified and stored securely. The production worker adapter must still be installed before automated media generation can run.",
+      });
+    }
+
     if (!["script", "general"].includes(provider.category)) {
-      return reply({ error: "This first connection adapter supports language-model providers. Image, video, voice and music adapters are being added separately." }, 422);
+      return reply({ error: "Choose the media-provider connection option for image, video, voice or music services." }, 422);
     }
 
     const baseUrl = providerEndpoints[String(provider.name).trim().toLowerCase()];
@@ -224,13 +313,14 @@ Deno.serve(async (req: Request) => {
     // It may consume a minimal amount of the provider's quota.
     await verifyChatModel(baseUrl, apiKey, modelId);
 
-    const stored = await callAdminRpc(supabaseUrl, "store_provider_secret", {
+    const stored = await callAdminRpc(supabaseUrl, "store_provider_connection", {
       p_owner_id: ownerId,
       p_provider_id: providerId,
       p_account_id: accountId,
       p_secret: apiKey,
       p_api_base_url: baseUrl,
       p_model_id: modelId,
+      p_adapter_key: "openai_compatible_chat",
       p_verified_models: models,
     });
     if (!stored?.ok) throw new Error("The provider credential could not be saved securely.");
