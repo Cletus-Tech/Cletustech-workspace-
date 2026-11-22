@@ -10,7 +10,8 @@ const workflow = [
   ["concepts", "Creative concepts", "Develop alternative story directions for your approval."],
   ["script", "Script writing", "Turn the selected concept into a complete script."],
   ["refinement", "Script refinement", "Improve pacing, dialogue, emotion and engagement."],
-  ["storyboard", "Storyboard & continuity", "Break the script into scenes and lock visual consistency."],
+  ["storyboard", "Storyboard development", "Turn the approved screenplay into scenes, shots and camera direction."],
+  ["continuity", "Continuity bible", "Lock character identity, wardrobe, locations, props, lighting and visual rules."],
   ["audio", "Voice & sound plan", "Prepare narration, dialogue, music and sound requirements."],
   ["generation", "Video generation", "Route approved scenes to suitable generation providers."],
   ["assembly", "Editing & delivery", "Assemble, review and export the finished production."]
